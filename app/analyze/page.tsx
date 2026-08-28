@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
+import { useAuth } from '@/context/AuthContext';
 import { MultimodalDropzone } from '@/components/analysis/MultimodalDropzone';
 import { AgentTimelinePanel } from '@/components/analysis/AgentTimelinePanel';
 import { inclusaOrchestrator } from '@/lib/agents/orchestrator';
@@ -27,6 +28,7 @@ export default function AnalyzePage() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sampleParam = searchParams.get('sample');
+  const { user } = useAuth();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);

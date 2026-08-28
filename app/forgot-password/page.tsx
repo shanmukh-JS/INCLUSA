@@ -38,7 +38,7 @@ export default function ForgotPasswordPage() {
       <div className="p-8 rounded-3xl border-3 border-[var(--border-strong)] bg-white shadow-[8px_8px_0_0_#192138] space-y-6">
         <div className="text-center space-y-2">
           <div className="flex justify-center mb-2">
-            <InclusaMascot pose="thinking" size={60} />
+            <InclusaMascot pose="helping" size={60} />
           </div>
           <h1 className="text-2xl font-black text-[var(--text-primary)]">
             Reset Your Password
