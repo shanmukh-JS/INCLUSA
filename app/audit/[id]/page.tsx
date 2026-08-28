@@ -73,7 +73,7 @@ export default function AuditDetailPage() {
         updatedAt: new Date().toISOString(),
       };
 
-      documentStore.saveAnalysis(updatedRecord);
+      documentStore.saveAnalysis(updatedRecord, user?.id);
       setAnalysis(updatedRecord);
       setIsTransforming(false);
 

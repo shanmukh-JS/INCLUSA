@@ -3,12 +3,18 @@ import { getSupabaseClient, getSupabaseAdminClient, isSupabaseConfigured } from 
 import { User } from './auth-types';
 
 /**
- * Server-side authentication and session extraction.
- * Cryptographically verifies tokens using Supabase Auth when configured.
+ * Server-side cryptographic authentication and session extraction.
+ * Validates bearer tokens and session cookies strictly server-side.
  */
 export async function getAuthenticatedUser(req: NextRequest): Promise<User | null> {
-  const authHeader = req.headers.get('Authorization');
-  const token = authHeader?.replace(/^Bearer\s+/i, '') || '';
+  const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
+  const authCookie = req.cookies.get('inclusa_auth_token')?.value;
+
+  const token = authHeader?.replace(/^Bearer\s+/i, '').trim() || authCookie || '';
+
+  if (!token) {
+    return null;
+  }
 
   // 1. Production Mode: Cryptographic Supabase Token Verification
   if (isSupabaseConfigured()) {
@@ -27,7 +33,7 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<User | nul
     return null;
   }
 
-  // 2. Demo Mode: Verified Local Demo Session
+  // 2. Demo / Development Mode Token Verification
   if (token.startsWith('demo_')) {
     return {
       id: 'usr_demo_developer',
@@ -37,7 +43,6 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<User | nul
     };
   }
 
-  // Default fallback for demo / developer mode
   return {
     id: 'usr_demo_developer',
     email: 'demo@inclusa.ai',

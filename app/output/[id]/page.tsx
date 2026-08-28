@@ -63,9 +63,9 @@ export default function OutputDetailPage() {
     );
   }
 
-  const beforeScore = analysis.initialScore?.overallScore || 40;
-  const afterScore = analysis.finalScore?.overallScore || analysis.verification?.afterScore.overallScore || 92;
-  const improvement = afterScore - beforeScore;
+  const beforeScore = analysis.initialScore?.overallScore ?? 0;
+  const afterScore = analysis.finalScore?.overallScore ?? analysis.verification?.afterScore.overallScore ?? beforeScore;
+  const improvement = analysis.verification?.scoreImprovement ?? (afterScore - beforeScore);
 
   return (
     <div className="mx-auto max-w-[1700px] px-4 sm:px-8 lg:px-12 py-8 w-full flex-1">

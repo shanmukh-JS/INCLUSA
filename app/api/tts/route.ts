@@ -1,7 +1,13 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser } from '@/lib/auth/server-auth';
 
 export async function POST(req: NextRequest) {
   try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    }
+
     const { text, voice = 'alloy', speed = 1.0 } = await req.json();
 
     if (!text || typeof text !== 'string') {

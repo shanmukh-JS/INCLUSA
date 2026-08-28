@@ -20,6 +20,18 @@ interface AuthContextType {
 
 const AUTH_STORAGE_KEY = 'inclusa_verified_session_v2';
 
+function setAuthCookie(token: string) {
+  if (typeof document !== 'undefined') {
+    document.cookie = `inclusa_auth_token=${encodeURIComponent(token)}; path=/; max-age=604800; SameSite=Lax`;
+  }
+}
+
+function clearAuthCookie() {
+  if (typeof document !== 'undefined') {
+    document.cookie = 'inclusa_auth_token=; path=/; max-age=0; SameSite=Lax';
+  }
+}
+
 const DEMO_USER: User = {
   id: 'usr_demo_developer',
   email: 'demo@inclusa.ai',
@@ -56,6 +68,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
               };
               setUser(verifiedUser);
               setSession(parsed);
+              setAuthCookie(parsed.token);
               setIsLoading(false);
               return;
             }
@@ -68,6 +81,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       // No active Supabase session
       setUser(null);
       setSession(null);
+      clearAuthCookie();
       localStorage.removeItem(AUTH_STORAGE_KEY);
       setIsLoading(false);
       return;
@@ -136,6 +150,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
       setUser(authUser);
       setSession(authSession);
+      setAuthCookie(authSession.token);
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
       setIsLoading(false);
       return { success: true };
@@ -157,6 +172,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUser(authUser);
     setSession(authSession);
+    setAuthCookie(authSession.token);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
     setIsLoading(false);
     return { success: true };
@@ -198,6 +214,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         };
         setUser(authUser);
         setSession(authSession);
+        setAuthCookie(authSession.token);
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
       }
 
@@ -221,6 +238,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
 
     setUser(authUser);
     setSession(authSession);
+    setAuthCookie(authSession.token);
     localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
     setIsLoading(false);
     return { success: true };
@@ -235,6 +253,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     }
     setUser(null);
     setSession(null);
+    clearAuthCookie();
     localStorage.removeItem(AUTH_STORAGE_KEY);
   };
 

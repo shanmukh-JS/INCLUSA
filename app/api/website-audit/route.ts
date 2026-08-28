@@ -1,9 +1,15 @@
 import { NextRequest, NextResponse } from 'next/server';
+import { getAuthenticatedUser } from '@/lib/auth/server-auth';
 import { calculateInitialScore } from '@/lib/scoring/accessibility-scorer';
 import { AccessibilityIssue } from '@/types';
 
 export async function POST(req: NextRequest) {
   try {
+    const authUser = await getAuthenticatedUser(req);
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    }
+
     const body = await req.json();
     const { url } = body;
 
