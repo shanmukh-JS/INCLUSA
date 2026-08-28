@@ -70,68 +70,68 @@ INCLUSA is engineered with a dual AI architecture:
 
 ---
 
-## 📁 Project Folder Structure
+## 📁 Systematic 3-Tier Architecture & Folder Structure
 
 ```
-inclusa/
-├── app/
-│   ├── layout.tsx                    # Root layout with AccessibilityContext & Toolbar
-│   ├── page.tsx                      # High-converting interactive Landing Page
-│   ├── dashboard/page.tsx            # Analytics Dashboard & Recent Analyses
-│   ├── analyze/page.tsx              # Multimodal Analysis Workspace & Live Agent Timeline
-│   ├── audit/[id]/page.tsx           # Audit Report, Issue Explorer & AI Transformation Center
-│   ├── output/[id]/page.tsx          # Multi-tab Output Viewer & Grounded RAG Assistant
-│   ├── website/page.tsx              # Live Website Accessibility Scanner
-│   ├── profile/page.tsx              # User Accessibility Profile & Preferences
-│   ├── history/page.tsx              # Historical Analyses & Filters
-│   ├── report/[id]/page.tsx          # 10-Section Printable Executive Accessibility Report
-│   └── api/                          # Backend API Routes (analyze, transform, verify, chat)
-├── components/
-│   ├── accessibility/
-│   │   ├── UniversalToolbar.tsx      # Persistent Accessibility Controls (Font, Contrast, Dyslexia)
-│   │   └── KeyboardShortcutsModal.tsx# Accessible Hotkeys Guide (Alt+A, Alt+K, Alt+C)
-│   ├── landing/
-│   │   ├── HeroSection.tsx           # Hero with dynamic callouts
-│   │   ├── InteractivePipelineVisualizer.tsx # 6-Agent animated state machine
-│   │   ├── SampleDemoSelector.tsx    # 1-Click preloaded sample document launcher
-│   │   └── MultimodalFeatureMatrix.tsx # Multimodal capabilities grid
-│   ├── dashboard/
-│   │   ├── MetricsGrid.tsx           # Total Analyses, Average Score, Issues Resolved
-│   │   ├── RecentDocumentsTable.tsx  # Document list with score badges & actions
-│   │   └── QuickUploadCard.tsx       # Fast ingestion widget
-│   ├── analysis/
-│   │   ├── MultimodalDropzone.tsx    # File, URL, and Paste ingestion
-│   │   ├── AgentTimelinePanel.tsx    # Live agent execution progress
-│   │   ├── ScoreGauge.tsx            # Radial SVG score visualizer
-│   │   ├── ScoreCard.tsx             # 6-Category score breakdown
-│   │   └── IssueExplorer.tsx         # Filterable barrier catalogue with "Fix with AI"
-│   ├── transformation/
-│   │   ├── TransformationCenter.tsx  # Customizable remediation checkboxes
-│   │   ├── BeforeAfterView.tsx       # Side-by-side Score & Issue Delta visualizer
-│   │   └── AccessibleOutputTabs.tsx  # Simplified, Telugu translation, and code viewer
-│   ├── media/
-│   │   └── AccessibleAudioPlayer.tsx # Audio player with interactive timestamp jumping & TTS
-│   ├── chat/
-│   │   └── InclusaAssistant.tsx      # Grounded RAG Document Assistant with citations
-│   └── navigation/
-│       ├── Navbar.tsx                # Responsive navigation with profile badge
-│       └── Footer.tsx                # Accessible footer
-├── context/
-│   └── AccessibilityContext.tsx      # Universal Toolbar state & ARIA live announcer
-├── lib/
-│   ├── agents/                       # 6 Autonomous Agents + Master Orchestrator
-│   ├── ai/                           # Dual AI Service (OpenAI / Gemini / Demo Engine)
-│   ├── rules/                        # 24+ WCAG 2.1 AA/AAA accessibility rules
-│   ├── scoring/                      # Algorithmic scoring & Before/After delta engine
-│   ├── storage/                      # Unified client/server document persistence
-│   └── mock/                         # 4 Preloaded rich sample files
-├── styles/
-│   └── globals.css                   # High-contrast themes, focus rings & CSS design tokens
-├── types/
-│   └── index.ts                      # Comprehensive TypeScript definitions
-├── supabase-schema.sql               # PostgreSQL database schema with RLS
-├── package.json
-└── tsconfig.json
+INCLUSA/
+│
+├── 🎨 1. FRONTEND LAYER (Client UI & Interaction)
+│   ├── app/                                # Next.js Pages & Client Routing
+│   │   ├── page.tsx                        # High-converting Landing Page (Retro-modern UI)
+│   │   ├── dashboard/page.tsx              # Accessibility Workspace & KPI Metrics
+│   │   ├── analyze/page.tsx                # Multimodal Ingestion Workspace & Agent Pipeline
+│   │   ├── audit/[id]/page.tsx             # WCAG Audit Report & Barrier Explorer
+│   │   ├── output/[id]/page.tsx            # Multi-tab Output Viewer & Grounded RAG Assistant
+│   │   ├── profile/page.tsx                # User Accessibility Profile Editor
+│   │   ├── history/page.tsx                # Historical Analyses & Filterable Archive
+│   │   ├── website/page.tsx                # Live Website Accessibility Scanner
+│   │   └── report/[id]/page.tsx            # 10-Section Printable Executive Report
+│   ├── components/                         # Modular React UI Component Library
+│   │   ├── landing/                        # 15 Interactive landing page sections
+│   │   ├── dashboard/                      # MetricsGrid, RecentDocumentsTable, QuickUpload
+│   │   ├── analysis/                       # FileDropzone, AgentTimeline, IssueExplorer
+│   │   ├── transformation/                 # AccessibleOutputTabs, BeforeAfterComparison
+│   │   ├── chat/                           # InclusaAssistant (Context-grounded Q&A)
+│   │   ├── accessibility/                  # UniversalToolbar, KeyboardShortcutsModal
+│   │   ├── media/                          # AccessibleAudioPlayer, CaptionedVideoPlayer
+│   │   ├── navigation/                     # Paper-card Navbar & Accessible Footer
+│   │   └── ui/                             # InclusaMascot (Incli with 8 poses)
+│   └── context/
+│       └── AccessibilityContext.tsx        # Dynamic CSS variable styling & contrast modes
+│
+├── ⚡ 2. BACKEND & AI AGENTS LAYER (Server APIs & Autonomous Logic)
+│   ├── app/api/                            # Next.js Serverless REST Endpoints
+│   │   ├── analyze/route.ts                # Ingestion & WCAG 2.1 audit endpoint
+│   │   ├── transform/route.ts              # Multimodal remediation & generation endpoint
+│   │   ├── verify/route.ts                 # Independent Before vs. After score delta
+│   │   ├── chat/route.ts                   # Context-grounded RAG Assistant endpoint
+│   │   ├── website-audit/route.ts          # Live URL web crawler endpoint
+│   │   ├── tts/route.ts                    # Audio speech generation endpoint
+│   │   ├── documents/route.ts              # Document CRUD database endpoint
+│   │   └── supabase/status/route.ts        # Database health check endpoint
+│   └── lib/
+│       ├── agents/                         # 6 Autonomous Specialized AI Agents
+│       │   ├── content-understanding.ts    # Agent 1: Multimodal Layout & Text Extraction
+│       │   ├── accessibility-audit.ts      # Agent 2: 24+ WCAG 2.1 AA/AAA Auditor
+│       │   ├── user-needs.ts               # Agent 3: Disability Profile Personalization
+│       │   ├── transformation-engine.ts    # Agent 4: Remediation Synthesizer (Alt Text/Telugu/Audio)
+│       │   ├── verification-engine.ts      # Agent 5: Mathematical Re-Audit & Score Delta
+│       │   ├── explanation-agent.ts        # Agent 6: Human-readable Benefit Summarizer
+│       │   └── orchestrator.ts             # Master Agent State Machine Loop
+│       ├── ai/
+│       │   └── ai-service.ts               # Dual AI Engine (Gemini 1.5 Pro / GPT-4o / Local Fallback)
+│       ├── scoring/
+│       │   └── accessibility-scorer.ts     # Weighted 6-Dimension Scoring Math Formula
+│       └── rules/
+│           └── wcag-rules.ts               # 24+ Deterministic WCAG Rule Criteria
+│
+└── 🗄️ 3. DATABASE & STORAGE LAYER (Supabase & Dual Persistence)
+    ├── supabase-schema.sql                 # PostgreSQL Schema (6 tables, UUIDs, Indexes, RLS)
+    ├── lib/supabase/
+    │   ├── client.ts                       # Isomorphic Supabase Client & Auth
+    │   └── db.ts                           # Type-safe Database CRUD & Bucket Storage
+    └── lib/storage/
+        └── document-store.ts               # Dual-Layer Persistence (LocalStorage Cache + Supabase Cloud Sync)
 ```
 
 ---

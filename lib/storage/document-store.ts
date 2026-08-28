@@ -6,6 +6,12 @@ import {
   DocumentAnalysis,
 } from '@/types';
 import { SAMPLE_DOCUMENTS } from '../mock/sample-documents';
+import {
+  saveAnalysisToSupabase,
+  deleteAnalysisFromSupabase,
+  fetchAnalysesFromSupabase,
+  isSupabaseConfigured,
+} from '../supabase/db';
 
 const STORAGE_KEYS = {
   ANALYSES: 'inclusa_analyses_v1',
@@ -119,6 +125,13 @@ class DocumentStore {
         console.error('Error saving analysis to localStorage', e);
       }
     }
+
+    // Async sync to Supabase Cloud if credentials exist
+    if (typeof window !== 'undefined') {
+      saveAnalysisToSupabase(analysis).catch((err) => {
+        console.warn('Supabase cloud sync deferred:', err);
+      });
+    }
   }
 
   public deleteAnalysis(id: string): void {
@@ -132,6 +145,41 @@ class DocumentStore {
         console.error('Error deleting analysis from localStorage', e);
       }
     }
+
+    // Async delete from Supabase Cloud
+    if (typeof window !== 'undefined') {
+      deleteAnalysisFromSupabase(id).catch((err) => {
+        console.warn('Supabase delete sync deferred:', err);
+      });
+    }
+  }
+
+  /**
+   * Pull all historical analyses from Supabase and merge with local storage
+   */
+  public async syncWithSupabaseCloud(): Promise<{ count: number }> {
+    try {
+      const cloudAnalyses = await fetchAnalysesFromSupabase();
+      if (cloudAnalyses && cloudAnalyses.length > 0) {
+        const local = this.getAllAnalyses();
+        const localMap = new Map(local.map((a) => [a.id, a]));
+        
+        // Merge cloud records
+        cloudAnalyses.forEach((ca) => {
+          if (!localMap.has(ca.id)) {
+            local.push(ca);
+          }
+        });
+
+        if (this.isClient()) {
+          localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(local));
+        }
+        return { count: cloudAnalyses.length };
+      }
+    } catch (e) {
+      console.error('Failed to sync with Supabase cloud:', e);
+    }
+    return { count: 0 };
   }
 
   // --- DASHBOARD METRICS ---
