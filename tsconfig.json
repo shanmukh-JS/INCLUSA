@@ -19,21 +19,7 @@
     ],
     "paths": {
       "@/*": ["./*"],
-      "@/components/*": ["./frontend/components/*", "./components/*"],
-      "@/context/*": ["./frontend/context/*", "./context/*"],
-      "@/styles/*": ["./frontend/styles/*", "./styles/*"],
-      "@/backend/*": ["./backend/*"],
-      "@/database/*": ["./database/*"],
-      "@/frontend/*": ["./frontend/*"],
-      "@/lib/agents/*": ["./backend/agents/*", "./lib/agents/*"],
-      "@/lib/ai/*": ["./backend/ai/*", "./lib/ai/*"],
-      "@/lib/scoring/*": ["./backend/scoring/*", "./lib/scoring/*"],
-      "@/lib/rules/*": ["./backend/rules/*", "./lib/rules/*"],
-      "@/lib/supabase/*": ["./database/*", "./lib/supabase/*"],
-      "@/lib/storage/*": ["./database/*", "./lib/storage/*"],
-      "@/lib/mock/*": ["./database/mock/*", "./lib/mock/*"],
-      "@/types/*": ["./backend/types/*", "./types/*"],
-      "@/types": ["./backend/types/index.ts", "./types/index.ts"]
+      "@/types": ["./types/index.ts", "./types"]
     }
   },
   "include": ["next-env.d.ts", "**/*.ts", "**/*.tsx", ".next/types/**/*.ts"],

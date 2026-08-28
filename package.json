@@ -4,11 +4,11 @@
   "private": true,
   "description": "INCLUSA — Agentic Multimodal AI Accessibility Platform",
   "scripts": {
-    "dev": "next dev frontend",
-    "build": "next build frontend",
-    "start": "next start frontend",
-    "reorganize": "node scripts/reorganize.js",
+    "dev": "next dev",
+    "build": "next build",
+    "start": "next start",
     "lint": "next lint",
+    "merge": "node scripts/merge-all.js",
     "test": "node scripts/test-engine.js",
     "push": "node scripts/push.js"
   },
