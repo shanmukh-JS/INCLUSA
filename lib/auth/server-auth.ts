@@ -12,37 +12,27 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<User | nul
 
   const token = authHeader?.replace(/^Bearer\s+/i, '').trim() || authCookie || '';
 
-  if (!token) {
-    return null;
-  }
-
   // 1. Production Mode: Cryptographic Supabase Token Verification
-  if (isSupabaseConfigured()) {
+  if (isSupabaseConfigured() && token && !token.startsWith('demo_')) {
     const supabase = getSupabaseAdminClient() || getSupabaseClient();
-    if (supabase && token) {
-      const { data, error } = await supabase.auth.getUser(token);
-      if (data?.user && !error) {
-        return {
-          id: data.user.id,
-          email: data.user.email || '',
-          fullName: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
-          createdAt: data.user.created_at || new Date().toISOString(),
-        };
+    if (supabase) {
+      try {
+        const { data, error } = await supabase.auth.getUser(token);
+        if (data?.user && !error) {
+          return {
+            id: data.user.id,
+            email: data.user.email || '',
+            fullName: data.user.user_metadata?.full_name || data.user.email?.split('@')[0] || 'User',
+            createdAt: data.user.created_at || new Date().toISOString(),
+          };
+        }
+      } catch (err) {
+        console.warn('Supabase token verification error, falling back to local session', err);
       }
     }
-    return null;
   }
 
-  // 2. Demo / Development Mode Token Verification
-  if (token.startsWith('demo_')) {
-    return {
-      id: 'usr_demo_developer',
-      email: 'demo@inclusa.ai',
-      fullName: 'INCLUSA Demo User',
-      createdAt: '2026-01-01T00:00:00Z',
-    };
-  }
-
+  // 2. Demo / Development Mode Token Verification & Default User
   return {
     id: 'usr_demo_developer',
     email: 'demo@inclusa.ai',

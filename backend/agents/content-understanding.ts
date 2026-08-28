@@ -5,7 +5,7 @@ import {
   ExtractedMedia,
   ExtractedTable,
   StructuredContent,
-} from '@/types';
+} from '../../types';
 import { aiService } from '../ai/ai-service';
 
 export interface IngestionInput {
@@ -23,7 +23,7 @@ export interface IngestionInput {
  * Agent 1 — Content Understanding Agent
  * Responsibilities:
  * - Identify input type
- * - Extract text & reading order
+ * - Extract live multimodal text & reading order (Gemini Vision / OCR)
  * - Understand images & detect charts
  * - Detect tables & extract data
  * - Understand audio/video speech cues
@@ -32,18 +32,75 @@ export interface IngestionInput {
 export class ContentUnderstandingAgent {
   public async analyze(input: IngestionInput): Promise<StructuredContent> {
     const documentId = input.id || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
-    const title = input.title || input.fileName || 'Digital Document';
     const inputType = input.inputType;
-    const rawText = input.rawText || this.getDefaultContentForType(inputType, title);
+    const fileName = input.fileName || input.title || 'Digital Document';
+    const initialTitle = input.title || input.fileName || 'Digital Document';
 
-    // Calculate NLP & Readability metrics
+    // 1. Multimodal Extraction via Dual AI Engine
+    let rawText = input.rawText || '';
+    let extractedData: any = null;
+
+    if (input.fileDataUrl || !rawText || rawText.includes('Multimodal IMAGE file processed with INCLUSA autonomous accessibility agents.')) {
+      try {
+        extractedData = await aiService.extractMultimodalContent({
+          fileDataUrl: input.fileDataUrl,
+          fileName,
+          inputType,
+          title: initialTitle,
+          url: input.url,
+          rawText: input.rawText,
+        });
+
+        if (extractedData?.text) {
+          rawText = extractedData.text;
+        }
+      } catch (err) {
+        console.warn('Multimodal extraction fallback:', err);
+      }
+    }
+
+    if (!rawText || rawText.trim().length === 0) {
+      rawText = this.getDefaultContentForType(inputType, initialTitle);
+    }
+
+    const title = extractedData?.title || initialTitle;
+
+    // 2. Calculate NLP & Readability metrics
     const metrics = aiService.calculateReadabilityMetrics(rawText);
 
-    // Parse blocks and headings
+    // 3. Parse blocks and headings
     const blocks: ContentBlock[] = [];
     const images: ExtractedImage[] = [];
     const tables: ExtractedTable[] = [];
     let media: ExtractedMedia | undefined = undefined;
+
+    // Use extracted tables if available
+    if (extractedData?.tables && extractedData.tables.length > 0) {
+      extractedData.tables.forEach((tbl: any, idx: number) => {
+        tables.push({
+          id: `tbl_${idx + 1}`,
+          pageNumber: 1,
+          headers: tbl.headers,
+          rows: tbl.rows,
+          summary: tbl.summary || `Data table with ${tbl.headers.length} columns`,
+          hasHeaders: true,
+          isComplex: tbl.headers.length > 4,
+        });
+      });
+    }
+
+    // Use extracted image descriptions if available
+    if (extractedData?.imageDescriptions && extractedData.imageDescriptions.length > 0) {
+      extractedData.imageDescriptions.forEach((img: any, idx: number) => {
+        images.push({
+          id: `img_${idx + 1}`,
+          pageNumber: 1,
+          isChartOrGraph: img.isChart,
+          hasExistingAlt: false,
+          chartDataSummary: img.detailed || img.altText,
+        });
+      });
+    }
 
     const lines = rawText.split('\n').filter((l) => l.trim().length > 0);
     let currentOrder = 1;
@@ -56,7 +113,7 @@ export class ContentUnderstandingAgent {
           id: `blk_${currentOrder}`,
           type: 'heading',
           level: 1,
-          text: line.replace('# ', ''),
+          text: line.replace(/^#\s+/, ''),
           pageNumber: Math.floor(i / 10) + 1,
           readingOrder: currentOrder++,
         });
@@ -65,7 +122,7 @@ export class ContentUnderstandingAgent {
           id: `blk_${currentOrder}`,
           type: 'heading',
           level: 2,
-          text: line.replace('## ', ''),
+          text: line.replace(/^##\s+/, ''),
           pageNumber: Math.floor(i / 10) + 1,
           readingOrder: currentOrder++,
         });
@@ -74,7 +131,7 @@ export class ContentUnderstandingAgent {
           id: `blk_${currentOrder}`,
           type: 'heading',
           level: 3,
-          text: line.replace('### ', ''),
+          text: line.replace(/^###\s+/, ''),
           pageNumber: Math.floor(i / 10) + 1,
           readingOrder: currentOrder++,
         });
@@ -87,26 +144,28 @@ export class ContentUnderstandingAgent {
           readingOrder: currentOrder++,
         });
       } else if (line.includes('|') && line.split('|').length >= 3) {
-        // Table detection
+        // Table detection from inline markdown
         const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
         if (cells.length > 0 && !line.includes('---')) {
           const tableId = `tbl_${tables.length + 1}`;
-          tables.push({
-            id: tableId,
-            pageNumber: Math.floor(i / 10) + 1,
-            headers: cells,
-            rows: [cells],
-            summary: `Data table with ${cells.length} columns`,
-            hasHeaders: false,
-            isComplex: cells.length > 4,
-          });
-          blocks.push({
-            id: `blk_${currentOrder}`,
-            type: 'table',
-            tableId,
-            pageNumber: Math.floor(i / 10) + 1,
-            readingOrder: currentOrder++,
-          });
+          if (!tables.some((t) => t.headers.join(',') === cells.join(','))) {
+            tables.push({
+              id: tableId,
+              pageNumber: Math.floor(i / 10) + 1,
+              headers: cells,
+              rows: [cells],
+              summary: `Data table with ${cells.length} columns: ${cells.join(', ')}`,
+              hasHeaders: true,
+              isComplex: cells.length > 4,
+            });
+            blocks.push({
+              id: `blk_${currentOrder}`,
+              type: 'table',
+              tableId,
+              pageNumber: Math.floor(i / 10) + 1,
+              readingOrder: currentOrder++,
+            });
+          }
         }
       } else {
         blocks.push({
@@ -120,20 +179,27 @@ export class ContentUnderstandingAgent {
     }
 
     // Detect / synthesize images if relevant to content type
-    if (inputType === 'image' || inputType === 'pdf' || rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('figure')) {
+    if (images.length === 0 && (inputType === 'image' || inputType === 'pdf' || rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('figure') || rawText.toLowerCase().includes('graph') || rawText.toLowerCase().includes('screenshot'))) {
+      const firstHeading = blocks.find((b) => b.type === 'heading')?.text || title;
+      const contextSnippet = blocks.find((b) => b.type === 'paragraph' && b.text)?.text || title;
+
       images.push({
         id: 'img_1',
-        pageNumber: 2,
-        isChartOrGraph: true,
+        pageNumber: 1,
+        isChartOrGraph: rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('graph') || rawText.toLowerCase().includes('data') || rawText.toLowerCase().includes('metrics'),
         hasExistingAlt: false,
-        chartDataSummary: 'Quarterly financial revenue metrics progressing from Q1 to Q4',
+        chartDataSummary: `Visual diagram and data metrics for "${firstHeading}". Context: ${contextSnippet.slice(0, 140)}`,
       });
-      images.push({
-        id: 'img_2',
-        pageNumber: 3,
-        isChartOrGraph: false,
-        hasExistingAlt: false,
-      });
+      
+      if (blocks.length > 6) {
+        images.push({
+          id: 'img_2',
+          pageNumber: 2,
+          isChartOrGraph: false,
+          hasExistingAlt: false,
+          chartDataSummary: `Informational visual illustration associated with ${firstHeading}`,
+        });
+      }
     }
 
     // Detect media cues for audio/video
@@ -197,23 +263,17 @@ export class ContentUnderstandingAgent {
 The target web resource features interactive user dashboards, dynamic charts, and customer reporting summaries. Multiple images and navigation elements require semantic accessibility enhancement.`;
     }
     return `# ${title}
-## Executive Strategic Overview
-This document contains comprehensive quarterly operational metrics, financial distribution curves, and strategic product initiatives for the upcoming fiscal cycle.
+## Strategic Document Overview
+This document contains structured operational sections, performance metrics, and compliance guidelines.
 
-## Quarterly Growth Metrics
-Quarterly performance demonstrated sustained momentum across regional sectors. Revenue reached 185 million in the fourth quarter, representing an 85% increase relative to initial baseline forecasts.
+## Key Metrics & Tables
+| Category | Metric | Baseline | Status |
+| Operations | High Performance | +14.2% | Verified |
+| Accessibility | WCAG 2.1 AA | Compliant | Remediated |
 
-## Key Operational Tables
-| Quarter | Target (M) | Actual (M) | Growth Rate |
-| Q1 | 95 | 100 | +5.2% |
-| Q2 | 115 | 125 | +8.7% |
-| Q3 | 140 | 155 | +10.7% |
-| Q4 | 170 | 185 | +8.8% |
-
-## Implementation Roadmap
-* Complete enterprise deployment across all regional branches.
-* Ensure full digital accessibility compliance across consumer-facing applications.
-* Establish continuous automated verification monitoring for all published assets.`;
+## Core Takeaways
+* Structured flow ensures full assistive technology support.
+* Visual and textual content is converted to accessible formats.`;
   }
 }
 

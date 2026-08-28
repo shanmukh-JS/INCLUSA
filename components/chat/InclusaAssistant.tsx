@@ -64,18 +64,46 @@ export const InclusaAssistant: React.FC<InclusaAssistantProps> = ({
     setIsThinking(true);
 
     try {
-      const res = await aiService.answerDocumentQuestion({
-        question: textToSend,
-        documentTitle,
-        documentText,
-      });
+      let answer = '';
+      let citations: any[] = [];
+
+      try {
+        const apiRes = await fetch('/api/chat', {
+          method: 'POST',
+          headers: { 'Content-Type': 'application/json' },
+          body: JSON.stringify({
+            question: textToSend,
+            documentTitle,
+            documentText,
+          }),
+        });
+        if (apiRes.ok) {
+          const apiData = await apiRes.json();
+          if (apiData.success && apiData.answer) {
+            answer = apiData.answer;
+            citations = apiData.citations || [];
+          }
+        }
+      } catch (apiErr) {
+        console.warn('API chat fetch failed, using direct client AI service', apiErr);
+      }
+
+      if (!answer) {
+        const fallbackRes = await aiService.answerDocumentQuestion({
+          question: textToSend,
+          documentTitle,
+          documentText,
+        });
+        answer = fallbackRes.answer;
+        citations = fallbackRes.citations || [];
+      }
 
       const assistantMsg: ChatMessage = {
         id: `msg_a_${Date.now()}`,
         documentId,
         sender: 'assistant',
-        content: res.answer,
-        citations: res.citations,
+        content: answer,
+        citations,
         timestamp: new Date().toISOString(),
       };
 
@@ -149,7 +177,7 @@ export const InclusaAssistant: React.FC<InclusaAssistantProps> = ({
                     <span className="font-black flex items-center gap-1 text-[#059669]">
                       <Quote className="h-3 w-3" /> Grounded References:
                     </span>
-                    {msg.citations.map((c, ci) => (
+                    {msg.citations.map((c: any, ci: number) => (
                       <div key={ci} className="pl-2 border-l-2 border-[#059669]">
                         {c.section && <span className="font-bold text-[var(--text-primary)]">[{c.section}] </span>}
                         {c.pageNumber && <span>Page {c.pageNumber}: </span>}

@@ -20,6 +20,7 @@ import {
   Award,
   AlertCircle,
   FileCheck2,
+  ExternalLink,
 } from 'lucide-react';
 import Link from 'next/link';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
@@ -39,7 +40,7 @@ function AnalyzePageContent() {
   // Auto-launch sample if specified in URL query
   useEffect(() => {
     if (sampleParam && !isProcessing && !completedAnalysis) {
-      const sample = SAMPLE_DOCUMENTS.find((s) => s.id === sampleParam);
+      const sample = SAMPLE_DOCUMENTS.find((s: any) => s.id === sampleParam);
       if (sample) {
         handleStartAnalysis({
           inputType: sample.inputType,
@@ -57,6 +58,7 @@ function AnalyzePageContent() {
     title: string;
     fileName?: string;
     rawText: string;
+    fileDataUrl?: string;
     url?: string;
     fileSizeBytes?: number;
   }) => {
@@ -74,11 +76,12 @@ function AnalyzePageContent() {
           title: data.title,
           fileName: data.fileName,
           rawText: data.rawText,
+          fileDataUrl: data.fileDataUrl,
           fileSizeBytes: data.fileSizeBytes,
           url: data.url,
         },
         activeProfile,
-        (currentStep, allSteps) => {
+        (currentStep: any, allSteps: any) => {
           setAgentSteps(allSteps);
         }
       );

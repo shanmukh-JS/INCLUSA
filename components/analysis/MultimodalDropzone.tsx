@@ -11,6 +11,8 @@ import {
   Sparkles,
   ArrowRight,
   AlertCircle,
+  ImageIcon,
+  X,
 } from 'lucide-react';
 import { DocumentInputType } from '@/types';
 import { SAMPLE_DOCUMENTS } from '@/lib/mock/sample-documents';
@@ -21,6 +23,7 @@ interface MultimodalDropzoneProps {
     title: string;
     fileName?: string;
     rawText: string;
+    fileDataUrl?: string;
     url?: string;
     fileSizeBytes?: number;
   }) => void;
@@ -36,6 +39,7 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
   const [pasteText, setPasteText] = useState('');
   const [pasteTitle, setPasteTitle] = useState('');
   const [selectedFile, setSelectedFile] = useState<File | null>(null);
+  const [filePreviewUrl, setFilePreviewUrl] = useState<string | null>(null);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
 
   const handleFileChange = (e: React.ChangeEvent<HTMLInputElement>) => {
@@ -47,7 +51,19 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
         return;
       }
       setSelectedFile(file);
+      if (file.type.startsWith('image/')) {
+        const preview = URL.createObjectURL(file);
+        setFilePreviewUrl(preview);
+      } else {
+        setFilePreviewUrl(null);
+      }
     }
+  };
+
+  const handleClearFile = (e: React.MouseEvent) => {
+    e.stopPropagation();
+    setSelectedFile(null);
+    setFilePreviewUrl(null);
   };
 
   const handleFileSubmit = () => {
@@ -58,34 +74,39 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
 
     const ext = selectedFile.name.split('.').pop()?.toLowerCase() || '';
     let inputType: DocumentInputType = 'pdf';
-    if (['png', 'jpg', 'jpeg', 'webp'].includes(ext)) inputType = 'image';
-    else if (['mp3', 'wav', 'ogg'].includes(ext)) inputType = 'audio';
+    if (['png', 'jpg', 'jpeg', 'webp', 'gif', 'bmp', 'svg'].includes(ext)) inputType = 'image';
+    else if (['mp3', 'wav', 'ogg', 'm4a'].includes(ext)) inputType = 'audio';
     else if (['mp4', 'mov', 'webm'].includes(ext)) inputType = 'video';
     else if (['doc', 'docx'].includes(ext)) inputType = 'docx';
-    else if (['txt', 'md'].includes(ext)) inputType = 'txt';
+    else if (['txt', 'md', 'json', 'csv'].includes(ext)) inputType = 'txt';
 
     const reader = new FileReader();
-    reader.onload = (event) => {
-      const content = (event.target?.result as string) || '';
-      onStartAnalysis({
-        inputType,
-        title: selectedFile.name.replace(/\.[^/.]+$/, ''),
-        fileName: selectedFile.name,
-        rawText: content || `# ${selectedFile.name}\n\nIngested ${inputType.toUpperCase()} file processed for multimodal accessibility remediation.`,
-        fileSizeBytes: selectedFile.size,
-      });
-    };
 
-    if (inputType === 'txt' || ext === 'md') {
+    if (inputType === 'txt' || ext === 'md' || ext === 'json' || ext === 'csv') {
+      reader.onload = (event) => {
+        const content = (event.target?.result as string) || '';
+        onStartAnalysis({
+          inputType,
+          title: selectedFile.name.replace(/\.[^/.]+$/, ''),
+          fileName: selectedFile.name,
+          rawText: content,
+          fileSizeBytes: selectedFile.size,
+        });
+      };
       reader.readAsText(selectedFile);
     } else {
-      onStartAnalysis({
-        inputType,
-        title: selectedFile.name.replace(/\.[^/.]+$/, ''),
-        fileName: selectedFile.name,
-        rawText: `# ${selectedFile.name}\n\nMultimodal ${inputType.toUpperCase()} file processed with INCLUSA autonomous accessibility agents. Contains visual charts, data tables, and structured text sections.`,
-        fileSizeBytes: selectedFile.size,
-      });
+      reader.onload = (event) => {
+        const dataUrl = (event.target?.result as string) || '';
+        onStartAnalysis({
+          inputType,
+          title: selectedFile.name.replace(/\.[^/.]+$/, ''),
+          fileName: selectedFile.name,
+          fileDataUrl: dataUrl,
+          rawText: '', // Will be dynamically parsed by Multimodal Vision & Dual AI Engine
+          fileSizeBytes: selectedFile.size,
+        });
+      };
+      reader.readAsDataURL(selectedFile);
     }
   };
 
@@ -118,7 +139,7 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
   };
 
   const handleSampleClick = (sampleId: string) => {
-    const sample = SAMPLE_DOCUMENTS.find((s) => s.id === sampleId);
+    const sample = SAMPLE_DOCUMENTS.find((s: any) => s.id === sampleId);
     if (sample) {
       onStartAnalysis({
         inputType: sample.inputType,
@@ -141,9 +162,9 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
               setActiveTab('upload');
               setErrorMsg(null);
             }}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-black transition-all ${
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
               activeTab === 'upload'
-                ? 'bg-amber-100 text-amber-950 border border-amber-300 shadow-sm'
+                ? 'bg-white text-[var(--text-primary)] border border-[var(--border-strong)] shadow-sm'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -157,9 +178,9 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
               setActiveTab('url');
               setErrorMsg(null);
             }}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-black transition-all ${
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
               activeTab === 'url'
-                ? 'bg-amber-100 text-amber-950 border border-amber-300 shadow-sm'
+                ? 'bg-white text-[var(--text-primary)] border border-[var(--border-strong)] shadow-sm'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -173,9 +194,9 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
               setActiveTab('paste');
               setErrorMsg(null);
             }}
-            className={`flex-1 sm:flex-initial flex items-center justify-center gap-2 py-2 px-4 rounded-xl text-xs font-black transition-all ${
+            className={`flex items-center justify-center gap-2 px-4 py-2 rounded-xl text-xs font-black transition-all ${
               activeTab === 'paste'
-                ? 'bg-amber-100 text-amber-950 border border-amber-300 shadow-sm'
+                ? 'bg-white text-[var(--text-primary)] border border-[var(--border-strong)] shadow-sm'
                 : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)]'
             }`}
           >
@@ -186,40 +207,64 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
       </div>
 
       {errorMsg && (
-        <div className="mb-5 p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+        <div className="mb-6 p-4 rounded-2xl bg-rose-50 border-2 border-rose-300 flex items-center gap-3 text-xs font-bold text-rose-900">
+          <AlertCircle className="h-4 w-4 text-rose-600 shrink-0" />
           <span>{errorMsg}</span>
         </div>
       )}
 
-      {/* TAB 1: File Upload Dropzone */}
+      {/* TAB 1: File Upload */}
       {activeTab === 'upload' && (
         <div className="space-y-5">
           <label
             htmlFor="file-upload-input"
-            className="flex flex-col items-center justify-center p-8 sm:p-12 rounded-3xl border-3 border-dashed border-[var(--border-color)] hover:border-[var(--border-strong)] bg-[var(--bg-primary)] hover:bg-amber-50/50 cursor-pointer transition-all duration-200 text-center group"
+            className="flex flex-col items-center justify-center p-8 sm:p-10 rounded-3xl border-3 border-dashed border-[var(--border-color)] hover:border-[var(--border-strong)] bg-[var(--bg-primary)] hover:bg-amber-50/50 cursor-pointer transition-all duration-200 text-center group relative overflow-hidden"
           >
-            <div className="p-4 rounded-2xl bg-white text-emerald-700 border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] group-hover:scale-105 transition-transform mb-3">
-              <UploadCloud className="h-8 w-8" />
-            </div>
+            {filePreviewUrl ? (
+              <div className="flex flex-col items-center gap-3 mb-2">
+                <div className="relative rounded-2xl overflow-hidden border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] max-h-40 max-w-full">
+                  <img
+                    src={filePreviewUrl}
+                    alt="Upload Preview"
+                    className="max-h-36 object-contain bg-white"
+                  />
+                  <button
+                    type="button"
+                    onClick={handleClearFile}
+                    className="absolute top-1 right-1 p-1 bg-black/70 hover:bg-black text-white rounded-full transition-colors"
+                  >
+                    <X className="h-3.5 w-3.5" />
+                  </button>
+                </div>
+                <span className="text-xs font-black text-[#059669] bg-emerald-50 px-3 py-1 rounded-full border border-emerald-300">
+                  {selectedFile?.name} ({((selectedFile?.size || 0) / 1024).toFixed(1)} KB)
+                </span>
+              </div>
+            ) : (
+              <>
+                <div className="p-4 rounded-2xl bg-white text-emerald-700 border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] group-hover:scale-105 transition-transform mb-3">
+                  <UploadCloud className="h-8 w-8" />
+                </div>
 
-            <div className="text-sm font-black text-[var(--text-primary)]">
-              {selectedFile ? (
-                <span className="text-[#059669] font-black">{selectedFile.name}</span>
-              ) : (
-                'Choose file or drag & drop here'
-              )}
-            </div>
+                <div className="text-sm font-black text-[var(--text-primary)]">
+                  {selectedFile ? (
+                    <span className="text-[#059669] font-black">{selectedFile.name}</span>
+                  ) : (
+                    'Choose file or drag & drop here'
+                  )}
+                </div>
 
-            <p className="text-xs text-[var(--text-secondary)] font-medium mt-1.5 max-w-sm">
-              Supports PDF, PNG, JPG, DOCX, TXT, MP3, WAV, MP4 (Max 25MB)
-            </p>
+                <p className="text-xs text-[var(--text-secondary)] font-medium mt-1.5 max-w-sm">
+                  Supports Images (PNG, JPG, WebP), PDFs, DOCX, TXT, Audio & Video
+                </p>
+              </>
+            )}
 
             <input
               id="file-upload-input"
               type="file"
               onChange={handleFileChange}
-              accept=".pdf,.png,.jpg,.jpeg,.docx,.doc,.txt,.md,.mp3,.wav,.mp4,.mov"
+              accept=".pdf,.png,.jpg,.jpeg,.webp,.gif,.docx,.doc,.txt,.md,.json,.csv,.mp3,.wav,.mp4,.mov"
               className="sr-only"
               disabled={isProcessing}
             />
@@ -232,7 +277,7 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
             className="w-full py-4 px-6 rounded-2xl bg-[#059669] hover:bg-[#047857] text-white font-black text-sm border-2 border-[var(--border-strong)] shadow-[4px_4px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] hover:shadow-[6px_6px_0_0_#192138] disabled:opacity-50 disabled:cursor-not-allowed flex items-center justify-center gap-2 transition-all"
           >
             <Sparkles className="h-4 w-4" />
-            <span>{isProcessing ? 'Processing with AI Agents...' : 'Run 6-Agent Accessibility Pipeline'}</span>
+            <span>{isProcessing ? 'Processing with Autonomous AI Agents...' : 'Run 6-Agent Accessibility Pipeline'}</span>
           </button>
         </div>
       )}
@@ -313,7 +358,7 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
           Or Select Preloaded Sample Document:
         </span>
         <div className="flex flex-wrap gap-2.5">
-          {SAMPLE_DOCUMENTS.map((s) => (
+          {SAMPLE_DOCUMENTS.map((s: any) => (
             <button
               key={s.id}
               type="button"

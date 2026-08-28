@@ -30,6 +30,9 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
   const out = analysis.transformedOutput;
   const verification = analysis.verification;
 
+  const availableLanguages = Object.keys(out?.translations || {});
+  const selectedLang = out?.translations?.[activeLanguage] ? activeLanguage : (availableLanguages[0] || 'te');
+
   if (!out) {
     return (
       <div className="p-8 rounded-3xl border-2 border-[var(--border-strong)] bg-white text-center text-xs text-[var(--text-muted)] font-medium">
@@ -141,7 +144,7 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
                   Key Points & Action Steps:
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {out.stepByStepGuide.map((step, idx) => (
+                  {out.stepByStepGuide.map((step: string, idx: number) => (
                     <div
                       key={idx}
                       className="p-3.5 rounded-2xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] leading-relaxed font-semibold shadow-sm"
@@ -167,7 +170,7 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
             {/* Language Selector */}
             <div className="flex items-center gap-2.5 pb-4 border-b-2 border-[var(--border-strong)]">
               <span className="text-xs font-black text-[var(--text-primary)]">Select Language:</span>
-              {Object.entries(out.translations).map(([code, trans]) => (
+              {Object.entries(out.translations).map(([code, trans]: [string, any]) => (
                 <button
                   key={code}
                   type="button"
@@ -183,13 +186,13 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
               ))}
             </div>
 
-            {out.translations[activeLanguage] ? (
+            {out.translations[selectedLang] ? (
               <div className="space-y-4">
                 <h3 className="text-base font-black text-[var(--text-primary)]">
-                  {out.translations[activeLanguage].title}
+                  {out.translations[selectedLang].title}
                 </h3>
                 <div className="p-6 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs sm:text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-line font-medium">
-                  {out.translations[activeLanguage].content}
+                  {out.translations[selectedLang].content}
                 </div>
               </div>
             ) : (
@@ -214,7 +217,7 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
             </div>
 
             <div className="space-y-4">
-              {out.imageDescriptions.map((img, idx) => (
+              {out.imageDescriptions.map((img: any, idx: number) => (
                 <div
                   key={img.id || idx}
                   className="p-6 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] space-y-3.5 shadow-sm"

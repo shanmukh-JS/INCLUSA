@@ -1,17 +1,18 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
-import { MultimodalDropzone } from '@/components/analysis/MultimodalDropzone';
-import { AgentTimelinePanel } from '@/components/analysis/AgentTimelinePanel';
-import { inclusaOrchestrator } from '@/lib/agents/orchestrator';
-import { documentStore } from '@/lib/storage/document-store';
-import { SAMPLE_DOCUMENTS } from '@/lib/mock/sample-documents';
+import { useAuth } from '../../../context/AuthContext';
+import { MultimodalDropzone } from '../../../components/analysis/MultimodalDropzone';
+import { AgentTimelinePanel } from '../../../components/analysis/AgentTimelinePanel';
+import { inclusaOrchestrator } from '../../../lib/agents/orchestrator';
+import { documentStore } from '../../../lib/storage/document-store';
+import { SAMPLE_DOCUMENTS } from '../../../lib/mock/sample-documents';
 import {
   AgentStep,
   DocumentAnalysis,
   DocumentInputType,
-} from '@/types';
+} from '../../../types';
 import {
   Sparkles,
   ArrowRight,
@@ -21,21 +22,24 @@ import {
   FileCheck2,
 } from 'lucide-react';
 import Link from 'next/link';
-import { InclusaMascot } from '@/components/ui/InclusaMascot';
+import { InclusaMascot } from '../../../components/ui/InclusaMascot';
 
-export default function AnalyzePage() {
+function AnalyzePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sampleParam = searchParams.get('sample');
+  const { user } = useAuth();
 
   const [isProcessing, setIsProcessing] = useState(false);
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
   const [completedAnalysis, setCompletedAnalysis] = useState<DocumentAnalysis | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastInputData, setLastInputData] = useState<any>(null);
 
   // Auto-launch sample if specified in URL query
   useEffect(() => {
     if (sampleParam && !isProcessing && !completedAnalysis) {
-      const sample = SAMPLE_DOCUMENTS.find((s) => s.id === sampleParam);
+      const sample = SAMPLE_DOCUMENTS.find((s: any) => s.id === sampleParam);
       if (sample) {
         handleStartAnalysis({
           inputType: sample.inputType,
@@ -53,13 +57,16 @@ export default function AnalyzePage() {
     title: string;
     fileName?: string;
     rawText: string;
+    fileDataUrl?: string;
     url?: string;
     fileSizeBytes?: number;
   }) => {
     setIsProcessing(true);
     setCompletedAnalysis(null);
+    setErrorMessage(null);
+    setLastInputData(data);
 
-    const activeProfile = documentStore.getActiveProfile();
+    const activeProfile = documentStore.getActiveProfile(user?.id);
 
     try {
       const pipelineResult = await inclusaOrchestrator.runPipeline(
@@ -68,17 +75,19 @@ export default function AnalyzePage() {
           title: data.title,
           fileName: data.fileName,
           rawText: data.rawText,
+          fileDataUrl: data.fileDataUrl,
           fileSizeBytes: data.fileSizeBytes,
           url: data.url,
         },
         activeProfile,
-        (currentStep, allSteps) => {
+        (currentStep: any, allSteps: any) => {
           setAgentSteps(allSteps);
         }
       );
 
       const analysisRecord: DocumentAnalysis = {
         id: pipelineResult.documentId,
+        userId: user?.id || 'user_default_inclusa_owner',
         title: pipelineResult.structuredContent.title,
         inputType: data.inputType,
         fileName: data.fileName,
@@ -97,17 +106,18 @@ export default function AnalyzePage() {
         pipelineResult,
       };
 
-      documentStore.saveAnalysis(analysisRecord);
+      documentStore.saveAnalysis(analysisRecord, user?.id);
       setCompletedAnalysis(analysisRecord);
       setIsProcessing(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error running accessibility pipeline', err);
+      setErrorMessage(err.message || 'An error occurred during agent pipeline execution.');
       setIsProcessing(false);
     }
   };
 
   return (
-    <div className="mx-auto max-w-7xl px-4 sm:px-6 lg:px-8 py-8 w-full flex-1">
+    <div className="mx-auto max-w-[1700px] px-4 sm:px-8 lg:px-12 py-8 w-full flex-1">
       {/* Header with Incli */}
       <div className="pb-6 border-b-2 border-[var(--border-strong)] mb-8 flex flex-col sm:flex-row items-start sm:items-center justify-between gap-4">
         <div>
@@ -158,6 +168,35 @@ export default function AnalyzePage() {
             </div>
           )}
 
+          {/* Error Banner if pipeline fails */}
+          {errorMessage && (
+            <div className="p-6 rounded-3xl border-3 border-[var(--border-strong)] bg-rose-50 shadow-[6px_6px_0_0_#192138] space-y-4 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-rose-200 text-rose-950 border border-rose-400">
+                  <AlertCircle className="h-6 w-6 text-rose-700" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-rose-950">
+                    Agent Pipeline Encountered an Error
+                  </h3>
+                  <p className="text-xs text-rose-800 font-medium mt-0.5">
+                    {errorMessage}
+                  </p>
+                </div>
+              </div>
+              {lastInputData && (
+                <button
+                  type="button"
+                  onClick={() => handleStartAnalysis(lastInputData)}
+                  className="py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center gap-2"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Retry Pipeline</span>
+                </button>
+              )}
+            </div>
+          )}
+
           {/* Success Banner when pipeline finishes */}
           {completedAnalysis && (
             <div className="p-6 sm:p-8 rounded-3xl border-3 border-[var(--border-strong)] bg-emerald-50 shadow-[6px_6px_0_0_#192138] transition-all animate-fade-in space-y-4">
@@ -198,5 +237,13 @@ export default function AnalyzePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AnalyzePage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-[1700px] px-4 py-20 text-center text-xs font-bold text-[var(--text-muted)]">Loading accessibility analyzer...</div>}>
+      <AnalyzePageContent />
+    </Suspense>
   );
 }
