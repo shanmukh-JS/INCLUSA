@@ -108,9 +108,19 @@ export const AgentTimelinePanel: React.FC<AgentTimelinePanelProps> = ({
 
                     {/* Agent Findings Summary */}
                     {step.findings && (
-                      <div className="mt-2.5 p-3 rounded-xl bg-white border border-[var(--border-color)] text-[11px] text-[var(--text-primary)] leading-relaxed font-medium">
-                        <span className="font-black text-[#059669] mr-1.5">✓ Finding:</span>
+                      <div className="mt-2.5 p-3 rounded-xl bg-white border border-[var(--border-color)] text-[11px] text-[var(--text-primary)] leading-relaxed font-medium shadow-sm">
+                        <span className="font-black text-[#059669] mr-1.5">✓ AI Analysis:</span>
                         {step.findings}
+                      </div>
+                    )}
+
+                    {/* Progress Bar for Running Step */}
+                    {isRunning && (
+                      <div className="mt-3 w-full bg-sky-200/60 rounded-full h-2 overflow-hidden border border-sky-300">
+                        <div
+                          className="bg-[#059669] h-full rounded-full transition-all duration-300 ease-out animate-pulse"
+                          style={{ width: `${step.progressPercent || 45}%` }}
+                        />
                       </div>
                     )}
                   </div>
@@ -119,25 +129,25 @@ export const AgentTimelinePanel: React.FC<AgentTimelinePanelProps> = ({
                 {/* Status Indicator */}
                 <div className="shrink-0">
                   {isRunning && (
-                    <span className="inline-flex items-center gap-1.5 text-[11px] font-black text-sky-950 bg-sky-200 px-2.5 py-1 rounded-xl border border-sky-400">
-                      <Loader2 className="h-3 w-3 animate-spin" />
-                      Running
+                    <span className="inline-flex items-center gap-1.5 text-[11px] font-black text-emerald-950 bg-emerald-100 px-3 py-1 rounded-xl border border-emerald-300 shadow-sm animate-pulse">
+                      <Loader2 className="h-3.5 w-3.5 animate-spin text-emerald-700" />
+                      <span>Processing ({step.progressPercent || 45}%)</span>
                     </span>
                   )}
                   {isCompleted && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-950 bg-emerald-200 px-2.5 py-1 rounded-xl border border-emerald-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-emerald-950 bg-emerald-200 px-2.5 py-1 rounded-xl border border-emerald-400 shadow-sm">
                       <Check className="h-3.5 w-3.5 text-emerald-800" />
                       Done
                     </span>
                   )}
                   {isFailed && (
-                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-rose-950 bg-rose-200 px-2.5 py-1 rounded-xl border border-rose-400">
+                    <span className="inline-flex items-center gap-1 text-[11px] font-black text-rose-950 bg-rose-200 px-2.5 py-1 rounded-xl border border-rose-400 shadow-sm">
                       <AlertCircle className="h-3.5 w-3.5" />
                       Error
                     </span>
                   )}
                   {isPending && (
-                    <span className="text-[10px] font-bold text-[var(--text-muted)] bg-white px-2 py-0.5 rounded-lg border border-[var(--border-color)]">
+                    <span className="text-[10px] font-bold text-[var(--text-muted)] bg-white px-2.5 py-1 rounded-lg border border-[var(--border-color)]">
                       Queued
                     </span>
                   )}

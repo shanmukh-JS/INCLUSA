@@ -88,18 +88,22 @@ export class InclusaOrchestrator {
       onProgress(steps[0], [...steps]);
     }
 
-    // STEP 1: Content Understanding
+      // STEP 1: Content Understanding
     try {
       updateStep(0, { status: 'running', progressPercent: 20, startedAt: new Date().toISOString() });
       await delay(400);
       const t0 = Date.now();
       updateStep(0, { progressPercent: 65 });
       const structuredContent = await contentUnderstandingAgent.analyze(input);
+      
+      const firstParagraph = structuredContent.blocks.find((b) => b.type === 'paragraph' && b.text)?.text || '';
+      const snippet = firstParagraph.length > 100 ? firstParagraph.substring(0, 97) + '...' : firstParagraph;
+
       updateStep(0, {
         status: 'completed',
         progressPercent: 100,
         durationMs: Date.now() - t0,
-        findings: `Extracted ${structuredContent.blocks.length} structural blocks, ${structuredContent.images.length} visuals/charts, and computed reading complexity at Grade ${structuredContent.metadata.readingComplexityFleschKincaid}.`,
+        findings: `Read "${structuredContent.title}" (${structuredContent.detectedLanguage.toUpperCase()}). Extracted ${structuredContent.blocks.length} blocks, ${structuredContent.images.length} images/charts, at Grade ${structuredContent.metadata.readingComplexityFleschKincaid} complexity.${snippet ? ` Overview: "${snippet}"` : ''}`,
         completedAt: new Date().toISOString(),
       });
 
@@ -110,11 +114,15 @@ export class InclusaOrchestrator {
       updateStep(1, { progressPercent: 70 });
       const initialIssues = accessibilityAuditAgent.audit(structuredContent);
       const initialScore = calculateInitialScore(initialIssues);
+
+      const criticalCount = initialIssues.filter((i) => i.severity === 'critical').length;
+      const highCount = initialIssues.filter((i) => i.severity === 'high').length;
+
       updateStep(1, {
         status: 'completed',
         progressPercent: 100,
         durationMs: Date.now() - t1,
-        findings: `Audited 24 WCAG rules. Detected ${initialIssues.length} accessibility barriers (Baseline Score: ${initialScore.overallScore}/100 - ${initialScore.status}).`,
+        findings: `Audited 24 WCAG rules: Identified ${initialIssues.length} barriers (${criticalCount} Critical, ${highCount} High). Baseline Score: ${initialScore.overallScore}/100 (${initialScore.status}).`,
         completedAt: new Date().toISOString(),
       });
 

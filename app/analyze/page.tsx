@@ -33,6 +33,8 @@ function AnalyzePageContent() {
   const [isProcessing, setIsProcessing] = useState(false);
   const [agentSteps, setAgentSteps] = useState<AgentStep[]>([]);
   const [completedAnalysis, setCompletedAnalysis] = useState<DocumentAnalysis | null>(null);
+  const [errorMessage, setErrorMessage] = useState<string | null>(null);
+  const [lastInputData, setLastInputData] = useState<any>(null);
 
   // Auto-launch sample if specified in URL query
   useEffect(() => {
@@ -60,6 +62,8 @@ function AnalyzePageContent() {
   }) => {
     setIsProcessing(true);
     setCompletedAnalysis(null);
+    setErrorMessage(null);
+    setLastInputData(data);
 
     const activeProfile = documentStore.getActiveProfile(user?.id);
 
@@ -103,8 +107,9 @@ function AnalyzePageContent() {
       documentStore.saveAnalysis(analysisRecord, user?.id);
       setCompletedAnalysis(analysisRecord);
       setIsProcessing(false);
-    } catch (err) {
+    } catch (err: any) {
       console.error('Error running accessibility pipeline', err);
+      setErrorMessage(err.message || 'An error occurred during agent pipeline execution.');
       setIsProcessing(false);
     }
   };
@@ -158,6 +163,35 @@ function AnalyzePageContent() {
               <p className="text-xs text-[var(--text-secondary)] font-medium mt-1 max-w-sm mx-auto leading-relaxed">
                 When you submit content, the 6 autonomous agents will activate in sequence to detect accessibility barriers and apply remediations.
               </p>
+            </div>
+          )}
+
+          {/* Error Banner if pipeline fails */}
+          {errorMessage && (
+            <div className="p-6 rounded-3xl border-3 border-[var(--border-strong)] bg-rose-50 shadow-[6px_6px_0_0_#192138] space-y-4 animate-fade-in">
+              <div className="flex items-center gap-3">
+                <div className="p-3 rounded-2xl bg-rose-200 text-rose-950 border border-rose-400">
+                  <AlertCircle className="h-6 w-6 text-rose-700" />
+                </div>
+                <div>
+                  <h3 className="text-base font-black text-rose-950">
+                    Agent Pipeline Encountered an Error
+                  </h3>
+                  <p className="text-xs text-rose-800 font-medium mt-0.5">
+                    {errorMessage}
+                  </p>
+                </div>
+              </div>
+              {lastInputData && (
+                <button
+                  type="button"
+                  onClick={() => handleStartAnalysis(lastInputData)}
+                  className="py-2.5 px-4 rounded-xl bg-rose-600 hover:bg-rose-700 text-white font-black text-xs border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center gap-2"
+                >
+                  <Sparkles className="h-3.5 w-3.5" />
+                  <span>Retry Pipeline</span>
+                </button>
+              )}
             </div>
           )}
 
