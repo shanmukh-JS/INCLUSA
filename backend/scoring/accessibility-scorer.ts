@@ -58,7 +58,7 @@ export function calculateOverallScore(categoryScores: CategoryScores): number {
     categoryScores.hearing * CATEGORY_WEIGHTS.hearing +
     categoryScores.language * CATEGORY_WEIGHTS.language +
     categoryScores.structure * CATEGORY_WEIGHTS.structure +
-    categoryScores.screen_reader * CATEGORY_WEIGHTS.screen_reader;
+    categoryScores.screenReader * CATEGORY_WEIGHTS.screen_reader;
 
   return Math.max(0, Math.min(100, Math.round(weighted)));
 }

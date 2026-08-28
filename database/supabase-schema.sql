@@ -1,6 +1,4 @@
--- ==========================================================
 -- INCLUSA Database Schema for Supabase PostgreSQL
--- ==========================================================
 
 -- Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
@@ -95,7 +93,7 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Row Level Security (RLS) Policies
+-- Row Level Security (RLS)
 ALTER TABLE accessibility_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analyses ENABLE ROW LEVEL SECURITY;
@@ -103,31 +101,12 @@ ALTER TABLE accessibility_issues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 
-CREATE POLICY "Public read access for profiles" ON accessibility_profiles FOR SELECT USING (true);
-CREATE POLICY "Public insert access for profiles" ON accessibility_profiles FOR INSERT WITH CHECK (true);
-CREATE POLICY "Public update access for profiles" ON accessibility_profiles FOR UPDATE USING (true);
+-- Sample Policies
+CREATE POLICY "Users can access own profiles" ON accessibility_profiles
+  FOR ALL USING (auth.uid() = user_id OR user_id IS NULL);
 
-CREATE POLICY "Public read access for documents" ON documents FOR SELECT USING (true);
-CREATE POLICY "Public insert access for documents" ON documents FOR INSERT WITH CHECK (true);
-CREATE POLICY "Public update access for documents" ON documents FOR UPDATE USING (true);
+CREATE POLICY "Users can access own documents" ON documents
+  FOR ALL USING (auth.uid() = user_id OR user_id IS NULL);
 
-CREATE POLICY "Public read access for analyses" ON analyses FOR SELECT USING (true);
-CREATE POLICY "Public insert access for analyses" ON analyses FOR INSERT WITH CHECK (true);
-CREATE POLICY "Public update access for analyses" ON analyses FOR UPDATE USING (true);
-
-CREATE POLICY "Public read access for issues" ON accessibility_issues FOR SELECT USING (true);
-CREATE POLICY "Public insert access for issues" ON accessibility_issues FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Public read access for chat_messages" ON chat_messages FOR SELECT USING (true);
-CREATE POLICY "Public insert access for chat_messages" ON chat_messages FOR INSERT WITH CHECK (true);
-
-CREATE POLICY "Public read access for reports" ON reports FOR SELECT USING (true);
-CREATE POLICY "Public insert access for reports" ON reports FOR INSERT WITH CHECK (true);
-
--- Indexes for high performance
-CREATE INDEX IF NOT EXISTS idx_documents_input_type ON documents(input_type);
-CREATE INDEX IF NOT EXISTS idx_analyses_document_id ON analyses(document_id);
-CREATE INDEX IF NOT EXISTS idx_analyses_created_at ON analyses(created_at DESC);
-CREATE INDEX IF NOT EXISTS idx_issues_analysis_id ON accessibility_issues(analysis_id);
-CREATE INDEX IF NOT EXISTS idx_issues_severity ON accessibility_issues(severity);
-CREATE INDEX IF NOT EXISTS idx_chat_document_id ON chat_messages(document_id);
+CREATE POLICY "Users can access own analyses" ON analyses
+  FOR ALL USING (TRUE);

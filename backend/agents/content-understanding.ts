@@ -5,7 +5,7 @@ import {
   ExtractedMedia,
   ExtractedTable,
   StructuredContent,
-} from '../types';
+} from '@/types';
 import { aiService } from '../ai/ai-service';
 
 export interface IngestionInput {
@@ -21,6 +21,13 @@ export interface IngestionInput {
 
 /**
  * Agent 1 — Content Understanding Agent
+ * Responsibilities:
+ * - Identify input type
+ * - Extract text & reading order
+ * - Understand images & detect charts
+ * - Detect tables & extract data
+ * - Understand audio/video speech cues
+ * - Detect language & document structure hierarchy
  */
 export class ContentUnderstandingAgent {
   public async analyze(input: IngestionInput): Promise<StructuredContent> {
@@ -29,8 +36,10 @@ export class ContentUnderstandingAgent {
     const inputType = input.inputType;
     const rawText = input.rawText || this.getDefaultContentForType(inputType, title);
 
+    // Calculate NLP & Readability metrics
     const metrics = aiService.calculateReadabilityMetrics(rawText);
 
+    // Parse blocks and headings
     const blocks: ContentBlock[] = [];
     const images: ExtractedImage[] = [];
     const tables: ExtractedTable[] = [];
@@ -78,6 +87,7 @@ export class ContentUnderstandingAgent {
           readingOrder: currentOrder++,
         });
       } else if (line.includes('|') && line.split('|').length >= 3) {
+        // Table detection
         const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
         if (cells.length > 0 && !line.includes('---')) {
           const tableId = `tbl_${tables.length + 1}`;
@@ -109,6 +119,7 @@ export class ContentUnderstandingAgent {
       }
     }
 
+    // Detect / synthesize images if relevant to content type
     if (inputType === 'image' || inputType === 'pdf' || rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('figure')) {
       images.push({
         id: 'img_1',
@@ -125,6 +136,7 @@ export class ContentUnderstandingAgent {
       });
     }
 
+    // Detect media cues for audio/video
     if (inputType === 'audio' || inputType === 'video') {
       media = {
         id: 'med_1',
@@ -170,9 +182,9 @@ export class ContentUnderstandingAgent {
   }
 
   private detectLanguage(text: string): string {
-    if (/[\u0C00-\u0C7F]/.test(text)) return 'te';
-    if (/[\u0900-\u097F]/.test(text)) return 'hi';
-    if (/[\u0B80-\u0BFF]/.test(text)) return 'ta';
+    if (/[\u0C00-\u0C7F]/.test(text)) return 'te'; // Telugu
+    if (/[\u0900-\u097F]/.test(text)) return 'hi'; // Hindi
+    if (/[\u0B80-\u0BFF]/.test(text)) return 'ta'; // Tamil
     return 'en';
   }
 
@@ -181,9 +193,27 @@ export class ContentUnderstandingAgent {
       return `Welcome to the INCLUSA keynote presentation. Today we explore agentic multimodal AI solutions designed to bridge digital divides. Over two billion people experience digital accessibility barriers daily. Our automated architecture transforms complex visual documents, audio recordings, and dense reports into accessible formats instantaneously.`;
     }
     if (type === 'url') {
-      return `# Web Accessibility Audit Target: ${title}\nThe target web resource features interactive user dashboards, dynamic charts, and customer reporting summaries. Multiple images and navigation elements require semantic accessibility enhancement.`;
+      return `# Web Accessibility Audit Target: ${title}
+The target web resource features interactive user dashboards, dynamic charts, and customer reporting summaries. Multiple images and navigation elements require semantic accessibility enhancement.`;
     }
-    return `# ${title}\n## Executive Strategic Overview\nThis document contains comprehensive quarterly operational metrics, financial distribution curves, and strategic product initiatives for the upcoming fiscal cycle.\n\n## Quarterly Growth Metrics\nQuarterly performance demonstrated sustained momentum across regional sectors. Revenue reached 185 million in the fourth quarter, representing an 85% increase relative to initial baseline forecasts.\n\n## Key Operational Tables\n| Quarter | Target (M) | Actual (M) | Growth Rate |\n| Q1 | 95 | 100 | +5.2% |\n| Q2 | 115 | 125 | +8.7% |\n| Q3 | 140 | 155 | +10.7% |\n| Q4 | 170 | 185 | +8.8% |\n\n## Implementation Roadmap\n* Complete enterprise deployment across all regional branches.\n* Ensure full digital accessibility compliance across consumer-facing applications.\n* Establish automated verification monitoring for all published assets.`;
+    return `# ${title}
+## Executive Strategic Overview
+This document contains comprehensive quarterly operational metrics, financial distribution curves, and strategic product initiatives for the upcoming fiscal cycle.
+
+## Quarterly Growth Metrics
+Quarterly performance demonstrated sustained momentum across regional sectors. Revenue reached 185 million in the fourth quarter, representing an 85% increase relative to initial baseline forecasts.
+
+## Key Operational Tables
+| Quarter | Target (M) | Actual (M) | Growth Rate |
+| Q1 | 95 | 100 | +5.2% |
+| Q2 | 115 | 125 | +8.7% |
+| Q3 | 140 | 155 | +10.7% |
+| Q4 | 170 | 185 | +8.8% |
+
+## Implementation Roadmap
+* Complete enterprise deployment across all regional branches.
+* Ensure full digital accessibility compliance across consumer-facing applications.
+* Establish continuous automated verification monitoring for all published assets.`;
   }
 }
 
