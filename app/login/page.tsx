@@ -11,17 +11,35 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const redirectUrl = searchParams.get('redirect') || '/dashboard';
-  const { login, isDemoMode } = useAuth();
+  const { login, resendConfirmationEmail, isDemoMode } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [showPassword, setShowPassword] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
+  const [isResending, setIsResending] = useState(false);
+
+  const handleResendConfirmation = async () => {
+    if (!email) {
+      setErrorMsg('Please enter your email address to resend confirmation.');
+      return;
+    }
+    setIsResending(true);
+    const res = await resendConfirmationEmail(email);
+    setIsResending(false);
+    if (res.success) {
+      setInfoMsg(res.message || 'Confirmation email sent! Please check your inbox.');
+    } else {
+      setErrorMsg(res.error || 'Failed to resend confirmation email.');
+    }
+  };
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setInfoMsg(null);
 
     if (!email || !email.includes('@')) {
       setErrorMsg('Please enter a valid email address.');
@@ -42,6 +60,8 @@ function LoginForm() {
       setErrorMsg(result.error || 'Email or password is incorrect.');
     }
   };
+
+  const isEmailNotConfirmed = errorMsg?.toLowerCase().includes('email not confirmed') || errorMsg?.toLowerCase().includes('unconfirmed');
 
   return (
     <div className="p-8 rounded-3xl border-3 border-[var(--border-strong)] bg-white shadow-[8px_8px_0_0_#192138] space-y-6">
@@ -64,10 +84,40 @@ function LoginForm() {
         )}
       </div>
 
+      {infoMsg && (
+        <div className="p-3.5 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold flex items-center gap-2">
+          <Info className="h-4 w-4 shrink-0 text-emerald-600" />
+          <span>{infoMsg}</span>
+        </div>
+      )}
+
       {errorMsg && (
-        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2">
-          <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
-          <span>{errorMsg}</span>
+        <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold space-y-2">
+          <div className="flex items-center gap-2">
+            <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
+            <span>{errorMsg}</span>
+          </div>
+
+          {isEmailNotConfirmed && (
+            <div className="pt-2 border-t border-rose-200 text-[11px] font-normal space-y-2 text-rose-800">
+              <p>
+                <strong>Email verification required:</strong> Please check your email inbox (and spam folder) for the verification link from Supabase.
+              </p>
+              <div className="flex flex-wrap items-center gap-2 pt-1">
+                <button
+                  type="button"
+                  onClick={handleResendConfirmation}
+                  disabled={isResending}
+                  className="px-3 py-1.5 rounded-xl bg-rose-600 text-white font-bold text-xs hover:bg-rose-700 disabled:opacity-50"
+                >
+                  {isResending ? 'Sending...' : 'Resend Confirmation Email'}
+                </button>
+              </div>
+              <p className="text-[10px] text-rose-700">
+                Tip: To allow instant login without email confirmation in development, turn off <em>Confirm email</em> in your <strong>Supabase Dashboard &gt; Authentication &gt; Providers &gt; Email</strong>.
+              </p>
+            </div>
+          )}
         </div>
       )}
 

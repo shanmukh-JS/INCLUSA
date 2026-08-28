@@ -14,6 +14,7 @@ interface AuthContextType {
   signUp: (data: { email: string; password?: string; fullName: string }) => Promise<{ success: boolean; error?: string }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
+  resendConfirmationEmail: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   refreshSession: () => Promise<void>;
   getToken: () => string | null;
 }
@@ -268,6 +269,17 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return { success: true };
   };
 
+  const resendConfirmationEmail = async (email: string): Promise<{ success: boolean; message?: string; error?: string }> => {
+    if (isSupabaseConfigured()) {
+      const supabase = getSupabaseClient();
+      if (!supabase) return { success: false, error: 'Supabase client unavailable' };
+      const { data, error } = await supabase.auth.resend({ type: 'signup', email });
+      if (error) return { success: false, error: error.message };
+      return { success: true, message: 'Confirmation email sent! Please check your inbox.' };
+    }
+    return { success: true, message: 'In demo mode, email confirmation is simulated as verified.' };
+  };
+
   const refreshSession = async (): Promise<void> => {
     await verifyAndRestoreSession();
   };
@@ -288,6 +300,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         signUp,
         logout,
         resetPassword,
+        resendConfirmationEmail,
         refreshSession,
         getToken,
       }}

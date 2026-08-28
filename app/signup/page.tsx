@@ -21,9 +21,12 @@ export default function SignupPage() {
   const isLengthValid = password.length >= 6;
   const isMatchValid = password.length > 0 && password === confirmPassword;
 
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
+
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
     setErrorMsg(null);
+    setSuccessMsg(null);
 
     if (!fullName.trim()) {
       setErrorMsg('Please enter your full name.');
@@ -47,7 +50,11 @@ export default function SignupPage() {
     setIsSubmitting(false);
 
     if (result.success) {
-      router.push('/dashboard');
+      if (isDemoMode) {
+        router.push('/dashboard');
+      } else {
+        setSuccessMsg('Account created successfully! If email confirmation is enabled in your Supabase project, please check your inbox to confirm your email before signing in.');
+      }
     } else {
       setErrorMsg(result.error || 'Failed to create account. Please try again.');
     }
@@ -67,6 +74,23 @@ export default function SignupPage() {
             Join INCLUSA to analyze, personalize, and verify accessible digital content.
           </p>
         </div>
+
+        {successMsg && (
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold space-y-2">
+            <div className="flex items-center gap-2">
+              <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
+              <span>{successMsg}</span>
+            </div>
+            <div className="pt-2 border-t border-emerald-200">
+              <Link
+                href="/login"
+                className="inline-flex items-center gap-1 text-xs font-black text-emerald-700 underline hover:text-emerald-900"
+              >
+                Go to Sign In &rarr;
+              </Link>
+            </div>
+          </div>
+        )}
 
         {errorMsg && (
           <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2">

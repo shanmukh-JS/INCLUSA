@@ -132,6 +132,35 @@ export class SupabaseRestClient {
         }
       },
 
+      resend: async (params: { type: string; email: string }): Promise<SupabaseAuthResponse<{ message?: string }>> => {
+        try {
+          const res = await fetch(`${this.url}/auth/v1/resend`, {
+            method: 'POST',
+            headers: {
+              'Content-Type': 'application/json',
+              apikey: this.anonKey,
+            },
+            body: JSON.stringify({
+              type: params.type || 'signup',
+              email: params.email,
+            }),
+          });
+          const json = await res.json();
+          if (!res.ok) {
+            return {
+              data: null,
+              error: {
+                message: json.error_description || json.msg || json.message || 'Failed to resend confirmation email',
+                status: res.status,
+              },
+            };
+          }
+          return { data: { message: 'Confirmation email resent successfully' }, error: null };
+        } catch (err: any) {
+          return { data: null, error: { message: err.message || 'Network error during resend' } };
+        }
+      },
+
       getUser: async (jwtToken?: string): Promise<SupabaseAuthResponse<{ user: SupabaseUser | null }>> => {
         if (!jwtToken) return { data: { user: null }, error: null };
         try {
