@@ -1,4 +1,5 @@
 import { getSupabaseClient, isSupabaseConfigured } from './client';
+export { isSupabaseConfigured };
 import {
   AccessibilityProfile,
   AccessibilityReport,

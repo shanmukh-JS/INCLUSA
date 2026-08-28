@@ -1,10 +1,6 @@
 /**
  * INCLUSA Supabase Production Client & Auth Provider
  * Lightweight, zero-external-dependency direct implementation of the Supabase Auth & PostgREST API.
- * Supports:
- * - Supabase Auth (Sign Up, Sign In, Sign Out, User Verification, Password Reset)
- * - Row-Level Security & PostgREST table queries
- * - Server & Client environments without bundling issues
  */
 
 export interface SupabaseUser {
@@ -198,55 +194,80 @@ export class SupabaseRestClient {
     };
   }
 
-  public from(table: string) {
+  public get storage() {
     return {
-      select: (columns: string = '*') => ({
-        eq: async (column: string, value: any) => {
+      from: (bucket: string) => ({
+        upload: async (filePath: string, fileBlob: any, options?: any) => {
           try {
-            const res = await fetch(`${this.url}/rest/v1/${table}?${column}=eq.${encodeURIComponent(value)}&select=${encodeURIComponent(columns)}`, {
+            const formData = new FormData();
+            formData.append('file', fileBlob);
+            const res = await fetch(`${this.url}/storage/v1/object/${bucket}/${filePath}`, {
+              method: 'POST',
               headers: {
                 apikey: this.anonKey,
                 Authorization: `Bearer ${this.anonKey}`,
+                ...(options?.contentType ? { 'Content-Type': options.contentType } : {}),
               },
+              body: fileBlob,
             });
             const data = await res.json();
-            return { data: Array.isArray(data) ? data : [], error: null };
+            return { data: { path: filePath, ...data }, error: res.ok ? null : data };
           } catch (err: any) {
-            return { data: [], error: err };
+            return { data: null, error: err };
           }
         },
-        order: (column: string, opts?: { ascending?: boolean }) => ({
-          limit: async (num: number) => {
-            try {
-              const asc = opts?.ascending === false ? 'desc' : 'asc';
-              const res = await fetch(`${this.url}/rest/v1/${table}?select=${encodeURIComponent(columns)}&order=${column}.${asc}&limit=${num}`, {
-                headers: {
-                  apikey: this.anonKey,
-                  Authorization: `Bearer ${this.anonKey}`,
-                },
-              });
-              const data = await res.json();
-              return { data: Array.isArray(data) ? data : [], error: null };
-            } catch (err: any) {
-              return { data: [], error: err };
-            }
-          },
-        }),
-        limit: async (num: number) => {
-          try {
-            const res = await fetch(`${this.url}/rest/v1/${table}?select=${encodeURIComponent(columns)}&limit=${num}`, {
-              headers: {
-                apikey: this.anonKey,
-                Authorization: `Bearer ${this.anonKey}`,
-              },
-            });
-            const data = await res.json();
-            return { data: Array.isArray(data) ? data : [], error: null };
-          } catch (err: any) {
-            return { data: [], error: err };
-          }
+        getPublicUrl: (filePath: string) => {
+          return {
+            data: {
+              publicUrl: `${this.url}/storage/v1/object/public/${bucket}/${filePath}`,
+            },
+          };
         },
       }),
+    };
+  }
+
+  public from(table: string) {
+    const executeQuery = async (queryUrl: string) => {
+      try {
+        const res = await fetch(queryUrl, {
+          headers: {
+            apikey: this.anonKey,
+            Authorization: `Bearer ${this.anonKey}`,
+          },
+        });
+        const data = await res.json();
+        return { data: Array.isArray(data) ? data : [], error: null };
+      } catch (err: any) {
+        return { data: [], error: err };
+      }
+    };
+
+    return {
+      select: (columns: string = '*') => {
+        let currentUrl = `${this.url}/rest/v1/${table}?select=${encodeURIComponent(columns)}`;
+
+        const builder: any = {
+          then: (onfulfilled: any, onrejected: any) => {
+            return executeQuery(currentUrl).then(onfulfilled, onrejected);
+          },
+          eq: (column: string, value: any) => {
+            currentUrl += `&${column}=eq.${encodeURIComponent(value)}`;
+            return builder;
+          },
+          order: (column: string, opts?: { ascending?: boolean }) => {
+            const asc = opts?.ascending === false ? 'desc' : 'asc';
+            currentUrl += `&order=${column}.${asc}`;
+            return builder;
+          },
+          limit: (num: number) => {
+            currentUrl += `&limit=${num}`;
+            return builder;
+          },
+        };
+
+        return builder;
+      },
 
       insert: async (payload: any) => {
         try {
