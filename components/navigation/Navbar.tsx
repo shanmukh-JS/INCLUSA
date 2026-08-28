@@ -166,6 +166,36 @@ export const Navbar: React.FC = () => {
               </Link>
             );
           })}
+          
+          <div className="pt-2 mt-2 border-t border-[var(--border-color)] flex items-center justify-between">
+            {isAuthenticated && user ? (
+              <div className="flex items-center justify-between w-full">
+                <span className="text-xs font-bold text-emerald-800">
+                  {user.fullName || user.email.split('@')[0]}
+                </span>
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border border-rose-200 text-rose-700 bg-rose-50 text-xs font-bold"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Logout</span>
+                </button>
+              </div>
+            ) : (
+              <Link
+                href="/login"
+                onClick={() => setIsMobileMenuOpen(false)}
+                className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl bg-amber-50 border border-amber-300 text-xs font-bold text-amber-900"
+              >
+                <LogIn className="h-3.5 w-3.5" />
+                <span>Sign In</span>
+              </Link>
+            )}
+          </div>
         </div>
       )}
     </header>
