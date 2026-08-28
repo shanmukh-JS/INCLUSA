@@ -1,0 +1,299 @@
+@import url('https://fonts.googleapis.com/css2?family=Plus+Jakarta+Sans:wght@400;500;600;700;800;900&family=Comic+Neue:wght@700&display=swap');
+
+@tailwind base;
+@tailwind components;
+@tailwind utilities;
+
+:root {
+  /* INCLUSA Playful Retro-Modern Palette */
+  --bg-primary: #FAF8F5;       /* Warm soft cream/off-white */
+  --bg-secondary: #F3EFE6;     /* Light parchment/cream */
+  --bg-card: #FFFFFF;          /* Pure crisp card */
+  --bg-card-hover: #FCFAF6;
+  --border-color: #E2DBD0;     /* Soft warm border */
+  --border-subtle: #ECE6DC;
+  --border-strong: #192138;    /* Dark ink stroke for retro cards */
+  
+  --text-primary: #192138;     /* Deep navy/charcoal for max contrast & readability */
+  --text-secondary: #475569;   /* Slate body text */
+  --text-muted: #64748B;       /* Muted annotations */
+
+  --accent-green: #059669;     /* Accessible emerald */
+  --accent-green-bg: #E6F7F0;
+  --accent-blue: #0284C7;      /* Friendly sky blue */
+  --accent-blue-bg: #E0F2FE;
+  --accent-purple: #7C3AED;    /* Playful lavender */
+  --accent-purple-bg: #F3E8FF;
+  --accent-amber: #D97706;     /* Warm sunshine yellow/gold */
+  --accent-amber-bg: #FEF3C7;
+  --accent-red: #DC2626;       /* Coral/warm red */
+  --accent-red-bg: #FEE2E2;
+
+  --focus-ring: #0284C7;
+  --font-scale: 100%;
+  --line-height-scale: 1.55;
+  --letter-spacing-scale: 0px;
+
+  --shadow-retro: 0 4px 0 0 rgba(25, 33, 56, 0.08), 0 10px 25px -5px rgba(25, 33, 56, 0.06);
+  --shadow-retro-strong: 0 6px 0 0 #192138;
+}
+
+/* High Contrast Yellow on Black */
+html[data-contrast="yellow-on-black"] {
+  --bg-primary: #000000;
+  --bg-secondary: #0A0A0A;
+  --bg-card: #121212;
+  --bg-card-hover: #1E1E1E;
+  --border-color: #FFFF00;
+  --border-subtle: #E6E600;
+  --border-strong: #FFFF00;
+  --text-primary: #FFFF00;
+  --text-secondary: #FFFF77;
+  --text-muted: #CCCC00;
+  --accent-green: #FFFF00;
+  --accent-green-bg: #222200;
+  --accent-blue: #FFFF00;
+  --accent-blue-bg: #222200;
+  --accent-purple: #FFFF00;
+  --accent-purple-bg: #222200;
+  --accent-amber: #FFFF00;
+  --accent-amber-bg: #222200;
+  --accent-red: #FF5555;
+  --accent-red-bg: #330000;
+  --focus-ring: #FFFFFF;
+  --shadow-retro: none;
+  --shadow-retro-strong: 0 4px 0 0 #FFFF00;
+}
+
+/* High Contrast Light Mode */
+html[data-contrast="high-contrast-light"] {
+  --bg-primary: #FFFFFF;
+  --bg-secondary: #F8FAFC;
+  --bg-card: #FFFFFF;
+  --bg-card-hover: #F1F5F9;
+  --border-color: #0F172A;
+  --border-subtle: #334155;
+  --border-strong: #000000;
+  --text-primary: #000000;
+  --text-secondary: #0F172A;
+  --text-muted: #334155;
+  --accent-green: #15803D;
+  --accent-green-bg: #DCFCE7;
+  --accent-blue: #0369A1;
+  --accent-blue-bg: #E0F2FE;
+  --accent-purple: #6D28D9;
+  --accent-purple-bg: #EDE9FE;
+  --accent-amber: #B45309;
+  --accent-amber-bg: #FEF3C7;
+  --accent-red: #B91C1C;
+  --accent-red-bg: #FEE2E2;
+  --focus-ring: #000000;
+  --shadow-retro: 0 4px 0 0 #000000;
+  --shadow-retro-strong: 0 6px 0 0 #000000;
+}
+
+/* High Contrast Dark Mode */
+html[data-contrast="high-contrast-dark"] {
+  --bg-primary: #000000;
+  --bg-secondary: #0A0F1D;
+  --bg-card: #111827;
+  --bg-card-hover: #1F2937;
+  --border-color: #FFFFFF;
+  --border-subtle: #CCCCCC;
+  --border-strong: #FFFFFF;
+  --text-primary: #FFFFFF;
+  --text-secondary: #E2E8F0;
+  --text-muted: #CBD5E1;
+  --accent-green: #34D399;
+  --accent-green-bg: rgba(52, 211, 153, 0.2);
+  --accent-blue: #60A5FA;
+  --accent-blue-bg: rgba(96, 165, 250, 0.2);
+  --accent-purple: #C084FC;
+  --accent-purple-bg: rgba(192, 132, 252, 0.2);
+  --accent-amber: #FBBF24;
+  --accent-amber-bg: rgba(251, 191, 36, 0.2);
+  --accent-red: #F87171;
+  --accent-red-bg: rgba(248, 113, 113, 0.2);
+  --focus-ring: #FFFFFF;
+  --shadow-retro: none;
+  --shadow-retro-strong: 0 4px 0 0 #FFFFFF;
+}
+
+/* Dyslexia-Friendly Font Overrides */
+html[data-dyslexia="true"] {
+  font-family: 'Comic Neue', 'OpenDyslexic', 'Comic Sans MS', sans-serif !important;
+  line-height: 1.8 !important;
+  letter-spacing: 0.05em !important;
+}
+
+html[data-dyslexia="true"] * {
+  font-family: inherit !important;
+}
+
+/* Focus Reading Mode */
+html[data-focus-mode="true"] body {
+  background-color: #EFECE6;
+}
+
+body {
+  font-family: 'Plus Jakarta Sans', system-ui, -apple-system, sans-serif;
+  background-color: var(--bg-primary);
+  color: var(--text-primary);
+  font-size: var(--font-scale);
+  line-height: var(--line-height-scale);
+  letter-spacing: var(--letter-spacing-scale);
+  min-height: 100vh;
+  overflow-x: hidden;
+}
+
+/* Accessible Focus Outlines (WCAG 2.2 Compliant) */
+:focus-visible {
+  outline: 3px solid var(--focus-ring) !important;
+  outline-offset: 3px !important;
+  border-radius: 6px;
+}
+
+/* Skip Navigation Link */
+.skip-link {
+  position: absolute;
+  top: -100px;
+  left: 16px;
+  background: var(--text-primary);
+  color: var(--bg-primary);
+  font-weight: 800;
+  padding: 12px 20px;
+  border-radius: 12px;
+  border: 2px solid var(--accent-amber);
+  z-index: 99999;
+  transition: top 0.2s ease-in-out;
+  text-decoration: none;
+  box-shadow: 0 8px 0 0 var(--border-strong);
+}
+
+.skip-link:focus {
+  top: 16px;
+}
+
+/* Playful Retro Card Classes */
+.retro-card {
+  background: var(--bg-card);
+  border: 1.5px solid var(--border-color);
+  border-radius: 24px;
+  box-shadow: 0 4px 16px -2px rgba(25, 33, 56, 0.04), 0 1px 2px rgba(25, 33, 56, 0.02);
+  transition: all 0.2s cubic-bezier(0.16, 1, 0.3, 1);
+}
+
+.retro-card:hover {
+  transform: translateY(-2px);
+  box-shadow: 0 10px 24px -4px rgba(25, 33, 56, 0.08), 0 2px 4px rgba(25, 33, 56, 0.04);
+  border-color: #D1C7BA;
+}
+
+.retro-card-accent {
+  background: var(--bg-card);
+  border: 2px solid var(--border-strong);
+  border-radius: 24px;
+  box-shadow: 4px 4px 0 0 var(--border-strong);
+  transition: all 0.15s ease-in-out;
+}
+
+.retro-card-accent:hover {
+  transform: translate(-2px, -2px);
+  box-shadow: 6px 6px 0 0 var(--border-strong);
+}
+
+.retro-badge {
+  display: inline-flex;
+  align-items: center;
+  gap: 6px;
+  padding: 4px 12px;
+  border-radius: 9999px;
+  font-size: 11px;
+  font-weight: 800;
+  letter-spacing: 0.02em;
+  border: 1.5px solid currentColor;
+}
+
+.hand-highlight {
+  position: relative;
+  display: inline-block;
+}
+
+.hand-highlight::after {
+  content: '';
+  position: absolute;
+  left: -4px;
+  right: -4px;
+  bottom: 2px;
+  height: 10px;
+  background: #FCD34D;
+  z-index: -1;
+  border-radius: 4px;
+  transform: rotate(-1.5deg);
+  opacity: 0.85;
+}
+
+/* Playful Clouds and Wave Divider */
+.cloud-bg {
+  background-image: radial-gradient(#E8E2D5 1px, transparent 1px);
+  background-size: 24px 24px;
+}
+
+/* Floating animation */
+@keyframes floatSlow {
+  0%, 100% { transform: translateY(0px); }
+  50% { transform: translateY(-8px); }
+}
+
+@keyframes pulseGlow {
+  0%, 100% { transform: scale(1); opacity: 0.8; }
+  50% { transform: scale(1.05); opacity: 1; }
+}
+
+.animate-float-slow {
+  animation: floatSlow 4s ease-in-out infinite;
+}
+
+.animate-pulse-glow {
+  animation: pulseGlow 3s ease-in-out infinite;
+}
+
+/* Respect Reduced Motion */
+@media (prefers-reduced-motion: reduce) {
+  *,
+  *::before,
+  *::after {
+    animation-duration: 0.01ms !important;
+    animation-iteration-count: 1 !important;
+    transition-duration: 0.01ms !important;
+    scroll-behavior: auto !important;
+  }
+}
+
+html[data-reduced-motion="true"] *,
+html[data-reduced-motion="true"] *::before,
+html[data-reduced-motion="true"] *::after {
+  animation-duration: 0.01ms !important;
+  animation-iteration-count: 1 !important;
+  transition-duration: 0.01ms !important;
+  scroll-behavior: auto !important;
+}
+
+/* Custom Scrollbars */
+::-webkit-scrollbar {
+  width: 8px;
+  height: 8px;
+}
+
+::-webkit-scrollbar-track {
+  background: var(--bg-secondary);
+}
+
+::-webkit-scrollbar-thumb {
+  background: var(--border-color);
+  border-radius: 6px;
+}
+
+::-webkit-scrollbar-thumb:hover {
+  background: var(--text-muted);
+}
