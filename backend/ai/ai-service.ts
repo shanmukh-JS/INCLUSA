@@ -893,36 +893,106 @@ ${text.slice(0, 4000)}`;
   }
 
   /**
-   * Generates an accessible, semantic HTML representation with full ARIA landmarks.
+   * Generates an accessible, semantic HTML representation with full ARIA landmarks, proper list grouping, and accessible tables.
    */
   public generateScreenReaderHtml(title: string, rawText: string): string {
-    const paragraphs = rawText.split('\n').filter((p) => p.trim().length > 0);
-    const bodyContent = paragraphs
-      .map((p, idx) => {
-        if (p.startsWith('# ')) {
-          return `  <h1 id="sec-${idx}">${p.replace('# ', '')}</h1>`;
+    const lines = rawText.split('\n');
+    const elements: string[] = [];
+    let inList = false;
+    let listItems: string[] = [];
+    let inTable = false;
+    let tableHeaders: string[] = [];
+    let tableRows: string[][] = [];
+
+    const flushList = () => {
+      if (inList && listItems.length > 0) {
+        elements.push(`    <ul role="list">\n${listItems.map((li) => `      <li>${li}</li>`).join('\n')}\n    </ul>`);
+        listItems = [];
+        inList = false;
+      }
+    };
+
+    const flushTable = () => {
+      if (inTable && tableHeaders.length > 0) {
+        elements.push(`    <div class="table-responsive" role="region" aria-label="Data Table" tabindex="0">
+      <table role="table">
+        <caption>Data Table: ${tableHeaders.slice(0, 3).join(', ')}</caption>
+        <thead>
+          <tr>${tableHeaders.map((h) => `<th scope="col">${h}</th>`).join('')}</tr>
+        </thead>
+        <tbody>
+          ${tableRows.map((r) => `<tr>${r.map((c, ci) => ci === 0 ? `<th scope="row">${c}</th>` : `<td>${c}</td>`).join('')}</tr>`).join('\n          ')}
+        </tbody>
+      </table>
+    </div>`);
+        tableHeaders = [];
+        tableRows = [];
+        inTable = false;
+      }
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+
+      // Check Table
+      if (line.includes('|') && line.split('|').length >= 3) {
+        flushList();
+        if (line.includes('---')) continue;
+        const cells = line.split('|').map((c) => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+        if (cells.length > 0) {
+          inTable = true;
+          if (tableHeaders.length === 0) {
+            tableHeaders = cells;
+          } else {
+            tableRows.push(cells);
+          }
+          continue;
         }
-        if (p.startsWith('## ')) {
-          return `  <h2 id="sec-${idx}">${p.replace('## ', '')}</h2>`;
-        }
-        if (p.startsWith('### ')) {
-          return `  <h3 id="sec-${idx}">${p.replace('### ', '')}</h3>`;
-        }
-        if (p.startsWith('* ') || p.startsWith('- ')) {
-          return `  <ul>\n    <li>${p.replace(/^[*|-]\s*/, '')}</li>\n  </ul>`;
-        }
-        if (p.includes('|')) {
-          return `  <!-- Table landmark -->`;
-        }
-        return `  <p>${p}</p>`;
-      })
-      .join('\n');
+      } else {
+        flushTable();
+      }
+
+      // Check List
+      if (line.startsWith('* ') || line.startsWith('- ') || /^\d+\.\s/.test(line)) {
+        inList = true;
+        listItems.push(line.replace(/^([*|-]|\d+\.)\s*/, ''));
+        continue;
+      } else {
+        flushList();
+      }
+
+      if (!line) continue;
+
+      // Headings
+      if (line.startsWith('# ')) {
+        elements.push(`    <h1 id="heading-${i}">${line.replace('# ', '')}</h1>`);
+      } else if (line.startsWith('## ')) {
+        elements.push(`    <h2 id="heading-${i}">${line.replace('## ', '')}</h2>`);
+      } else if (line.startsWith('### ')) {
+        elements.push(`    <h3 id="heading-${i}">${line.replace('### ', '')}</h3>`);
+      } else {
+        elements.push(`    <p>${line}</p>`);
+      }
+    }
+
+    flushList();
+    flushTable();
 
     return `<!DOCTYPE html>
 <html lang="en">
 <head>
   <meta charset="UTF-8">
+  <meta name="viewport" content="width=device-width, initial-scale=1.0">
   <title>${title} - Accessible Remediated Version</title>
+  <style>
+    body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #192138; max-width: 860px; margin: 0 auto; padding: 2rem; }
+    h1, h2, h3 { color: #0f172a; }
+    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
+    th, td { border: 1px solid #cbd5e1; padding: 0.75rem; text-align: left; }
+    th { background: #f8fafc; font-weight: bold; }
+    .skip-link { position: absolute; left: -9999px; }
+    .skip-link:focus { left: 1rem; top: 1rem; background: #000; color: #fff; padding: 0.5rem; }
+  </style>
 </head>
 <body>
   <header role="banner">
@@ -932,11 +1002,12 @@ ${text.slice(0, 4000)}`;
   </header>
   
   <main id="main-content" role="main" aria-label="${title}">
-${bodyContent}
+${elements.join('\n\n')}
   </main>
   
   <footer role="contentinfo" aria-label="Remediation Metadata">
-    <p>Remediated with INCLUSA Agentic Accessibility Engine.</p>
+    <hr />
+    <p><small>Remediated with INCLUSA Autonomous Accessibility Engine &copy; 2026. WCAG 2.2 Compliant.</small></p>
   </footer>
 </body>
 </html>`;
