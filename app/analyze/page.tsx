@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { MultimodalDropzone } from '@/components/analysis/MultimodalDropzone';
@@ -24,7 +24,7 @@ import {
 import Link from 'next/link';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
 
-export default function AnalyzePage() {
+function AnalyzePageContent() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const sampleParam = searchParams.get('sample');
@@ -201,5 +201,13 @@ export default function AnalyzePage() {
         </div>
       </div>
     </div>
+  );
+}
+
+export default function AnalyzePage() {
+  return (
+    <Suspense fallback={<div className="mx-auto max-w-[1700px] px-4 py-20 text-center text-xs font-bold text-[var(--text-muted)]">Loading accessibility analyzer...</div>}>
+      <AnalyzePageContent />
+    </Suspense>
   );
 }
