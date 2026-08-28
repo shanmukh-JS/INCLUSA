@@ -81,9 +81,14 @@ export class TransformationAgent {
     const screenReaderHtml = shouldSr ? aiService.generateScreenReaderHtml(title, rawText) : '';
 
     // 5. Linearize Tables
-    const tableRepresentations: TransformedOutput['tableRepresentations'] = content.tables.map((tbl, idx) => ({
-      id: tbl.id,
-      accessibleHtml: `<table role="table" aria-label="Accessible Table ${idx + 1}: ${tbl.summary}">
+    const tableRepresentations: TransformedOutput['tableRepresentations'] = content.tables.map((tbl, idx) => {
+      const headerList = tbl.headers.length > 0 ? tbl.headers.join(', ') : 'columns';
+      const rowCount = tbl.rows.length;
+      const sampleValues = tbl.rows.length > 0 ? tbl.rows[0].slice(0, 3).join(', ') : '';
+
+      return {
+        id: tbl.id,
+        accessibleHtml: `<table role="table" aria-label="Accessible Table ${idx + 1}: ${tbl.summary}">
   <thead>
     <tr>${tbl.headers.map((h) => `<th scope="col">${h}</th>`).join('')}</tr>
   </thead>
@@ -91,8 +96,9 @@ export class TransformationAgent {
     ${tbl.rows.map((r) => `<tr>${r.map((c) => `<td>${c}</td>`).join('')}</tr>`).join('')}
   </tbody>
 </table>`,
-      plainExplanation: `Table ${idx + 1} demonstrates sequential progress across all measured quarters, confirming revenue increased from 100M in Q1 to 185M in Q4.`,
-    }));
+        plainExplanation: `Table ${idx + 1} (${tbl.summary || 'Data Table'}): Formatted with ${tbl.headers.length} columns [${headerList}] and ${rowCount} data rows.${sampleValues ? ` Initial record: [${sampleValues}].` : ''} All cells are linearized with column header associations for screen reader navigation.`,
+      };
+    });
 
     // 6. Generate Audio/Video Captions & Transcripts
     const timedCaptionsVtt = aiService.generateWebVttCaptions(title);

@@ -120,20 +120,27 @@ export class ContentUnderstandingAgent {
     }
 
     // Detect / synthesize images if relevant to content type
-    if (inputType === 'image' || inputType === 'pdf' || rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('figure')) {
+    if (inputType === 'image' || inputType === 'pdf' || rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('figure') || rawText.toLowerCase().includes('graph') || rawText.toLowerCase().includes('image')) {
+      const firstHeading = blocks.find((b) => b.type === 'heading')?.text || title;
+      const contextSnippet = blocks.find((b) => b.type === 'paragraph' && b.text)?.text || title;
+
       images.push({
         id: 'img_1',
-        pageNumber: 2,
-        isChartOrGraph: true,
+        pageNumber: 1,
+        isChartOrGraph: rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('graph') || rawText.toLowerCase().includes('data'),
         hasExistingAlt: false,
-        chartDataSummary: 'Quarterly financial revenue metrics progressing from Q1 to Q4',
+        chartDataSummary: `Visual diagram and data metrics for "${firstHeading}". Context: ${contextSnippet.slice(0, 140)}`,
       });
-      images.push({
-        id: 'img_2',
-        pageNumber: 3,
-        isChartOrGraph: false,
-        hasExistingAlt: false,
-      });
+      
+      if (blocks.length > 5) {
+        images.push({
+          id: 'img_2',
+          pageNumber: 2,
+          isChartOrGraph: false,
+          hasExistingAlt: false,
+          chartDataSummary: `Informational visual illustration associated with ${firstHeading}`,
+        });
+      }
     }
 
     // Detect media cues for audio/video
