@@ -17,6 +17,7 @@ import {
   LogIn,
   LogOut,
   User,
+  ShieldCheck,
 } from 'lucide-react';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
 import { documentStore } from '@/lib/storage/document-store';
@@ -57,6 +58,8 @@ export const Navbar: React.FC = () => {
     { href: '/profile', label: 'My Profile', icon: UserCheck },
     { href: '/history', label: 'History', icon: History },
   ];
+
+  const displayName = user?.fullName || user?.email?.split('@')[0] || 'Account';
 
   return (
     <header className="sticky top-2 sm:top-4 z-40 w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto">
@@ -107,34 +110,47 @@ export const Navbar: React.FC = () => {
           })}
         </nav>
 
-        {/* Right Actions & Active Profile */}
+        {/* Right Actions & Active Profile Status */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           {isAuthenticated && user ? (
-            <div className="hidden lg:flex items-center gap-2">
+            <>
+              {/* Desktop User Badge */}
+              <div className="hidden lg:flex items-center gap-2">
+                <Link
+                  href="/profile"
+                  title={`Logged in as ${user.fullName || user.email} (${user.email})`}
+                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-950 hover:bg-emerald-100 transition-colors shadow-xs"
+                >
+                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                  <span className="text-[11px] font-black truncate max-w-[130px]">
+                    {displayName}
+                  </span>
+                </Link>
+                <button
+                  type="button"
+                  onClick={logout}
+                  title="Sign out"
+                  aria-label="Sign out"
+                  className="p-1.5 rounded-xl border border-[var(--border-color)] hover:bg-rose-50 text-[var(--text-muted)] hover:text-rose-600 transition-colors"
+                >
+                  <LogOut className="h-3.5 w-3.5" />
+                </button>
+              </div>
+
+              {/* Mobile/Tablet User Indicator Pill */}
               <Link
                 href="/profile"
-                title={`Logged in as ${user.fullName || user.email}`}
-                className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-900 hover:bg-emerald-100 transition-colors"
+                className="lg:hidden flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-950 text-[10px] font-black shadow-xs"
+                title={`Logged in as ${displayName}`}
               >
-                <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                <span className="text-[11px] font-black truncate max-w-[120px]">
-                  {user.fullName || user.email.split('@')[0]}
-                </span>
+                <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
+                <span className="truncate max-w-[70px] xs:max-w-[90px]">{displayName}</span>
               </Link>
-              <button
-                type="button"
-                onClick={logout}
-                title="Sign out"
-                aria-label="Sign out"
-                className="p-1.5 rounded-xl border border-[var(--border-color)] hover:bg-rose-50 text-[var(--text-muted)] hover:text-rose-600 transition-colors"
-              >
-                <LogOut className="h-3.5 w-3.5" />
-              </button>
-            </div>
+            </>
           ) : (
             <Link
               href="/login"
-              className="hidden sm:inline-flex items-center gap-1 px-3 py-1.5 rounded-xl border-2 border-[var(--border-strong)] bg-white text-xs font-black text-[var(--text-primary)] hover:bg-amber-50 shadow-[2px_2px_0_0_#192138] transition-all"
+              className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl border-2 border-[var(--border-strong)] bg-white text-xs font-black text-[var(--text-primary)] hover:bg-amber-50 shadow-[2px_2px_0_0_#192138] transition-all"
             >
               <LogIn className="h-3.5 w-3.5" />
               <span>Sign In</span>
@@ -176,8 +192,57 @@ export const Navbar: React.FC = () => {
             role="dialog"
             aria-modal="true"
             aria-label="Mobile Navigation Menu"
-            className="relative z-50 md:hidden mt-2 p-4 rounded-2xl bg-white border-2 border-[var(--border-strong)] shadow-[0_8px_0_0_#192138] space-y-2 animate-fade-in-up"
+            className="relative z-50 md:hidden mt-2 p-4 rounded-2xl bg-white border-2 border-[var(--border-strong)] shadow-[0_8px_0_0_#192138] space-y-3 animate-fade-in-up"
           >
+            {/* Authenticated Banner Inside Drawer */}
+            {isAuthenticated && user ? (
+              <div className="p-3 rounded-xl bg-emerald-50 border-2 border-emerald-300 flex items-center justify-between gap-2">
+                <div className="flex items-center gap-2 min-w-0">
+                  <div className="p-2 rounded-lg bg-emerald-200 text-emerald-950 border border-emerald-400 shrink-0">
+                    <User className="h-4 w-4" />
+                  </div>
+                  <div className="min-w-0">
+                    <div className="flex items-center gap-1.5">
+                      <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+                      <span className="text-[10px] font-black uppercase text-emerald-900">Signed In</span>
+                    </div>
+                    <p className="text-xs font-black text-[var(--text-primary)] truncate">
+                      {user.fullName || user.email}
+                    </p>
+                    <p className="text-[10px] text-[var(--text-muted)] truncate font-medium">
+                      {user.email}
+                    </p>
+                  </div>
+                </div>
+
+                <button
+                  type="button"
+                  onClick={() => {
+                    setIsMobileMenuOpen(false);
+                    logout();
+                  }}
+                  className="p-2 rounded-xl border border-rose-300 text-rose-700 bg-white hover:bg-rose-50 text-xs font-black shrink-0 transition-colors"
+                  title="Sign out"
+                >
+                  <LogOut className="h-4 w-4" />
+                </button>
+              </div>
+            ) : (
+              <div className="p-3 rounded-xl bg-amber-50 border-2 border-amber-300 text-center">
+                <p className="text-xs font-bold text-amber-950 mb-2">
+                  Not signed in yet
+                </p>
+                <Link
+                  href="/login"
+                  onClick={() => setIsMobileMenuOpen(false)}
+                  className="flex items-center justify-center gap-1.5 w-full py-2 rounded-xl bg-white border-2 border-[var(--border-strong)] text-xs font-black text-[var(--text-primary)] shadow-[2px_2px_0_0_#192138]"
+                >
+                  <LogIn className="h-3.5 w-3.5" />
+                  <span>Sign In / Create Account</span>
+                </Link>
+              </div>
+            )}
+
             <nav className="space-y-1">
               {navLinks.map((link) => {
                 const Icon = link.icon;
@@ -199,39 +264,6 @@ export const Navbar: React.FC = () => {
                 );
               })}
             </nav>
-            
-            <div className="pt-2.5 mt-2 border-t-2 border-[var(--border-color)] flex items-center justify-between">
-              {isAuthenticated && user ? (
-                <div className="flex items-center justify-between w-full">
-                  <div className="flex items-center gap-1.5">
-                    <span className="h-2 w-2 rounded-full bg-emerald-500" />
-                    <span className="text-xs font-bold text-emerald-950 truncate max-w-[160px]">
-                      {user.fullName || user.email.split('@')[0]}
-                    </span>
-                  </div>
-                  <button
-                    type="button"
-                    onClick={() => {
-                      setIsMobileMenuOpen(false);
-                      logout();
-                    }}
-                    className="flex items-center gap-1.5 px-3 py-2 rounded-xl border border-rose-300 text-rose-700 bg-rose-50 text-xs font-black hover:bg-rose-100"
-                  >
-                    <LogOut className="h-3.5 w-3.5" />
-                    <span>Logout</span>
-                  </button>
-                </div>
-              ) : (
-                <Link
-                  href="/login"
-                  onClick={() => setIsMobileMenuOpen(false)}
-                  className="flex items-center justify-center gap-1.5 w-full py-2.5 rounded-xl bg-amber-50 border-2 border-amber-300 text-xs font-black text-amber-950 shadow-[2px_2px_0_0_#192138]"
-                >
-                  <LogIn className="h-3.5 w-3.5" />
-                  <span>Sign In to INCLUSA</span>
-                </Link>
-              )}
-            </div>
           </div>
         </>
       )}

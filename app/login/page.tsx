@@ -1,11 +1,23 @@
 'use client';
 
-import React, { useState, Suspense } from 'react';
+import React, { useState, useEffect, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
-import { LogIn, Mail, Lock, AlertCircle, Eye, EyeOff, Info, CheckCircle2 } from 'lucide-react';
+import {
+  LogIn,
+  Mail,
+  Lock,
+  AlertCircle,
+  Eye,
+  EyeOff,
+  Info,
+  CheckCircle2,
+  ArrowRight,
+  LogOut,
+  Layers,
+} from 'lucide-react';
 
 function LoginForm() {
   const router = useRouter();
@@ -14,7 +26,7 @@ function LoginForm() {
   // Safe redirect validation to prevent open-redirect vulnerabilities
   const redirectUrl = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/dashboard';
 
-  const { login, resendConfirmationEmail } = useAuth();
+  const { user, isLoading, login, logout, resendConfirmationEmail } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -23,6 +35,59 @@ function LoginForm() {
   const [infoMsg, setInfoMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
+
+  // Automatic redirect if already authenticated
+  useEffect(() => {
+    if (user && !isLoading) {
+      const timer = setTimeout(() => {
+        router.replace(redirectUrl);
+      }, 700);
+      return () => clearTimeout(timer);
+    }
+  }, [user, isLoading, redirectUrl, router]);
+
+  // If already logged in, show clear authenticated state with instant redirect action
+  if (!isLoading && user) {
+    return (
+      <div className="p-8 rounded-3xl border-3 border-[var(--border-strong)] bg-white shadow-[8px_8px_0_0_#192138] space-y-6 text-center animate-fade-in">
+        <div className="flex justify-center mb-2">
+          <InclusaMascot pose="celebrating" size={80} />
+        </div>
+        <div>
+          <div className="inline-flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-950 text-xs font-black mb-2">
+            <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
+            <span>Active Session Detected</span>
+          </div>
+          <h1 className="text-2xl font-black text-[var(--text-primary)]">
+            You Are Already Logged In!
+          </h1>
+          <p className="text-xs text-[var(--text-secondary)] font-medium mt-1">
+            Signed in as <strong className="text-[var(--text-primary)]">{user.fullName || user.email}</strong> ({user.email}).
+          </p>
+        </div>
+
+        <div className="space-y-3 pt-2">
+          <Link
+            href={redirectUrl}
+            className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-black text-xs border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+          >
+            <Layers className="h-4 w-4" />
+            <span>Continue to Workspace</span>
+            <ArrowRight className="h-4 w-4" />
+          </Link>
+
+          <button
+            type="button"
+            onClick={logout}
+            className="w-full py-2.5 px-4 rounded-xl border-2 border-rose-200 text-rose-700 bg-rose-50 hover:bg-rose-100 font-black text-xs transition-colors flex items-center justify-center gap-2"
+          >
+            <LogOut className="h-3.5 w-3.5" />
+            <span>Sign Out / Switch Account</span>
+          </button>
+        </div>
+      </div>
+    );
+  }
 
   const handleResendConfirmation = async () => {
     if (!email) {
@@ -58,7 +123,7 @@ function LoginForm() {
     setIsSubmitting(false);
 
     if (result.success) {
-      router.push(redirectUrl);
+      router.replace(redirectUrl);
     } else {
       setErrorMsg(result.error || 'Email or password is incorrect.');
     }
