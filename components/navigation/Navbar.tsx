@@ -17,7 +17,6 @@ import {
   LogIn,
   LogOut,
   User,
-  ShieldCheck,
 } from 'lucide-react';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
 import { documentStore } from '@/lib/storage/document-store';
@@ -59,7 +58,7 @@ export const Navbar: React.FC = () => {
     { href: '/history', label: 'History', icon: History },
   ];
 
-  const displayName = user?.fullName || user?.email?.split('@')[0] || 'Account';
+  const displayName = user?.fullName || user?.email?.split('@')[0] || 'User';
 
   return (
     <header className="sticky top-2 sm:top-4 z-40 w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto">
@@ -110,49 +109,39 @@ export const Navbar: React.FC = () => {
           })}
         </nav>
 
-        {/* Right Actions & Active Profile Status */}
+        {/* Right Actions & Unmistakable User Session Badge on ALL Devices */}
         <div className="flex items-center gap-2 sm:gap-2.5 shrink-0">
           {isAuthenticated && user ? (
-            <>
-              {/* Desktop User Badge */}
-              <div className="hidden lg:flex items-center gap-2">
-                <Link
-                  href="/profile"
-                  title={`Logged in as ${user.fullName || user.email} (${user.email})`}
-                  className="flex items-center gap-1.5 px-3 py-1 rounded-full bg-emerald-50 border border-emerald-300 text-emerald-950 hover:bg-emerald-100 transition-colors shadow-xs"
-                >
-                  <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                  <span className="text-[11px] font-black truncate max-w-[130px]">
-                    {displayName}
-                  </span>
-                </Link>
-                <button
-                  type="button"
-                  onClick={logout}
-                  title="Sign out"
-                  aria-label="Sign out"
-                  className="p-1.5 rounded-xl border border-[var(--border-color)] hover:bg-rose-50 text-[var(--text-muted)] hover:text-rose-600 transition-colors"
-                >
-                  <LogOut className="h-3.5 w-3.5" />
-                </button>
-              </div>
-
-              {/* Mobile/Tablet User Indicator Pill */}
+            <div className="flex items-center gap-1.5 sm:gap-2">
+              {/* Universal User Pill visible on ALL screen sizes */}
               <Link
                 href="/profile"
-                className="lg:hidden flex items-center gap-1 px-2.5 py-1 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-950 text-[10px] font-black shadow-xs"
-                title={`Logged in as ${displayName}`}
+                title={`Signed in as ${user.fullName || user.email} (${user.email})`}
+                className="flex items-center gap-1.5 px-2.5 sm:px-3 py-1 rounded-full bg-emerald-100 border-2 border-emerald-400 text-emerald-950 hover:bg-emerald-200 transition-colors shadow-xs"
               >
-                <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse" />
-                <span className="truncate max-w-[70px] xs:max-w-[90px]">{displayName}</span>
+                <span className="h-2 w-2 rounded-full bg-emerald-600 animate-pulse shrink-0" />
+                <span className="text-[11px] font-black max-w-[80px] xs:max-w-[120px] sm:max-w-[150px] truncate">
+                  {displayName}
+                </span>
               </Link>
-            </>
+
+              {/* Quick Logout Button on Desktop */}
+              <button
+                type="button"
+                onClick={logout}
+                title="Sign out of INCLUSA"
+                aria-label="Sign out"
+                className="hidden sm:inline-flex p-1.5 rounded-xl border-2 border-[var(--border-strong)] bg-white hover:bg-rose-50 text-[var(--text-muted)] hover:text-rose-600 shadow-[1px_1px_0_0_#192138] transition-colors"
+              >
+                <LogOut className="h-3.5 w-3.5" />
+              </button>
+            </div>
           ) : (
             <Link
               href="/login"
-              className="inline-flex items-center gap-1 px-2.5 sm:px-3 py-1.5 rounded-xl border-2 border-[var(--border-strong)] bg-white text-xs font-black text-[var(--text-primary)] hover:bg-amber-50 shadow-[2px_2px_0_0_#192138] transition-all"
+              className="inline-flex items-center gap-1.5 px-3 sm:px-3.5 py-1.5 rounded-xl border-2 border-[var(--border-strong)] bg-amber-50 hover:bg-amber-100 text-xs font-black text-[var(--text-primary)] shadow-[2px_2px_0_0_#192138] transition-all"
             >
-              <LogIn className="h-3.5 w-3.5" />
+              <LogIn className="h-3.5 w-3.5 text-amber-700" />
               <span>Sign In</span>
             </Link>
           )}
@@ -196,15 +185,15 @@ export const Navbar: React.FC = () => {
           >
             {/* Authenticated Banner Inside Drawer */}
             {isAuthenticated && user ? (
-              <div className="p-3 rounded-xl bg-emerald-50 border-2 border-emerald-300 flex items-center justify-between gap-2">
-                <div className="flex items-center gap-2 min-w-0">
+              <div className="p-3.5 rounded-xl bg-emerald-50 border-2 border-emerald-300 flex items-center justify-between gap-2 shadow-xs">
+                <div className="flex items-center gap-2.5 min-w-0">
                   <div className="p-2 rounded-lg bg-emerald-200 text-emerald-950 border border-emerald-400 shrink-0">
                     <User className="h-4 w-4" />
                   </div>
                   <div className="min-w-0">
                     <div className="flex items-center gap-1.5">
                       <span className="h-2 w-2 rounded-full bg-emerald-500 animate-pulse" />
-                      <span className="text-[10px] font-black uppercase text-emerald-900">Signed In</span>
+                      <span className="text-[10px] font-black uppercase tracking-wider text-emerald-900">Signed In</span>
                     </div>
                     <p className="text-xs font-black text-[var(--text-primary)] truncate">
                       {user.fullName || user.email}
@@ -221,10 +210,11 @@ export const Navbar: React.FC = () => {
                     setIsMobileMenuOpen(false);
                     logout();
                   }}
-                  className="p-2 rounded-xl border border-rose-300 text-rose-700 bg-white hover:bg-rose-50 text-xs font-black shrink-0 transition-colors"
+                  className="flex items-center gap-1 px-2.5 py-1.5 rounded-xl border border-rose-300 text-rose-700 bg-white hover:bg-rose-50 text-xs font-black shrink-0 transition-colors shadow-xs"
                   title="Sign out"
                 >
-                  <LogOut className="h-4 w-4" />
+                  <LogOut className="h-3.5 w-3.5" />
+                  <span>Logout</span>
                 </button>
               </div>
             ) : (
