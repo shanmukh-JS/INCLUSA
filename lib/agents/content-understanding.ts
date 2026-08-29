@@ -102,81 +102,111 @@ export class ContentUnderstandingAgent {
       });
     }
 
-    const lines = rawText.split('\n').filter((l) => l.trim().length > 0);
+    const lines = rawText.split('\n');
     let currentOrder = 1;
+    let inTable = false;
+    let currentTableHeaders: string[] = [];
+    let currentTableRows: string[][] = [];
 
-    for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
-
-      if (line.startsWith('# ')) {
-        blocks.push({
-          id: `blk_${currentOrder}`,
-          type: 'heading',
-          level: 1,
-          text: line.replace(/^#\s+/, ''),
-          pageNumber: Math.floor(i / 10) + 1,
-          readingOrder: currentOrder++,
+    const flushCurrentTable = () => {
+      if (currentTableHeaders.length > 0) {
+        const tableId = `tbl_${tables.length + 1}`;
+        tables.push({
+          id: tableId,
+          pageNumber: 1,
+          headers: currentTableHeaders,
+          rows: currentTableRows,
+          summary: `Data table with ${currentTableHeaders.length} columns: ${currentTableHeaders.join(', ')}`,
+          hasHeaders: true,
+          isComplex: currentTableHeaders.length > 4,
         });
-      } else if (line.startsWith('## ')) {
         blocks.push({
           id: `blk_${currentOrder}`,
-          type: 'heading',
-          level: 2,
-          text: line.replace(/^##\s+/, ''),
-          pageNumber: Math.floor(i / 10) + 1,
-          readingOrder: currentOrder++,
-        });
-      } else if (line.startsWith('### ')) {
-        blocks.push({
-          id: `blk_${currentOrder}`,
-          type: 'heading',
-          level: 3,
-          text: line.replace(/^###\s+/, ''),
-          pageNumber: Math.floor(i / 10) + 1,
-          readingOrder: currentOrder++,
-        });
-      } else if (line.startsWith('* ') || line.startsWith('- ')) {
-        blocks.push({
-          id: `blk_${currentOrder}`,
-          type: 'list',
-          items: [line.replace(/^[*|-]\s*/, '')],
-          pageNumber: Math.floor(i / 10) + 1,
-          readingOrder: currentOrder++,
-        });
-      } else if (line.includes('|') && line.split('|').length >= 3) {
-        // Table detection from inline markdown
-        const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
-        if (cells.length > 0 && !line.includes('---')) {
-          const tableId = `tbl_${tables.length + 1}`;
-          if (!tables.some((t) => t.headers.join(',') === cells.join(','))) {
-            tables.push({
-              id: tableId,
-              pageNumber: Math.floor(i / 10) + 1,
-              headers: cells,
-              rows: [cells],
-              summary: `Data table with ${cells.length} columns: ${cells.join(', ')}`,
-              hasHeaders: true,
-              isComplex: cells.length > 4,
-            });
-            blocks.push({
-              id: `blk_${currentOrder}`,
-              type: 'table',
-              tableId,
-              pageNumber: Math.floor(i / 10) + 1,
-              readingOrder: currentOrder++,
-            });
-          }
-        }
-      } else {
-        blocks.push({
-          id: `blk_${currentOrder}`,
-          type: 'paragraph',
-          text: line,
-          pageNumber: Math.floor(i / 10) + 1,
+          type: 'table',
+          tableId,
+          pageNumber: 1,
           readingOrder: currentOrder++,
         });
       }
+      currentTableHeaders = [];
+      currentTableRows = [];
+      inTable = false;
+    };
+
+    for (let i = 0; i < lines.length; i++) {
+      const line = lines[i].trim();
+      if (!line) {
+        if (inTable) flushCurrentTable();
+        continue;
+      }
+
+      if (line.includes('|') && line.split('|').length >= 3) {
+        // Table line
+        if (line.includes('---')) {
+          // Separator line
+          continue;
+        }
+        const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
+        if (cells.length > 0) {
+          if (!inTable) {
+            inTable = true;
+            currentTableHeaders = cells;
+          } else {
+            currentTableRows.push(cells);
+          }
+        }
+      } else {
+        if (inTable) flushCurrentTable();
+
+        if (line.startsWith('# ')) {
+          blocks.push({
+            id: `blk_${currentOrder}`,
+            type: 'heading',
+            level: 1,
+            text: line.replace(/^#\s+/, ''),
+            pageNumber: Math.floor(i / 10) + 1,
+            readingOrder: currentOrder++,
+          });
+        } else if (line.startsWith('## ')) {
+          blocks.push({
+            id: `blk_${currentOrder}`,
+            type: 'heading',
+            level: 2,
+            text: line.replace(/^##\s+/, ''),
+            pageNumber: Math.floor(i / 10) + 1,
+            readingOrder: currentOrder++,
+          });
+        } else if (line.startsWith('### ')) {
+          blocks.push({
+            id: `blk_${currentOrder}`,
+            type: 'heading',
+            level: 3,
+            text: line.replace(/^###\s+/, ''),
+            pageNumber: Math.floor(i / 10) + 1,
+            readingOrder: currentOrder++,
+          });
+        } else if (line.startsWith('* ') || line.startsWith('- ')) {
+          blocks.push({
+            id: `blk_${currentOrder}`,
+            type: 'list',
+            items: [line.replace(/^[*|-]\s*/, '')],
+            pageNumber: Math.floor(i / 10) + 1,
+            readingOrder: currentOrder++,
+          });
+        } else {
+          blocks.push({
+            id: `blk_${currentOrder}`,
+            type: 'paragraph',
+            text: line,
+            pageNumber: Math.floor(i / 10) + 1,
+            readingOrder: currentOrder++,
+          });
+        }
+      }
     }
+
+    if (inTable) flushCurrentTable();
+
 
     // Detect / synthesize images if relevant to content type
     if (images.length === 0 && (inputType === 'image' || inputType === 'pdf' || rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('figure') || rawText.toLowerCase().includes('graph') || rawText.toLowerCase().includes('screenshot'))) {

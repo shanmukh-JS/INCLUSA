@@ -16,16 +16,182 @@ import {
   Copy,
   Check,
   Download,
+  Eye,
+  CheckCircle2,
+  Table as TableIcon,
 } from 'lucide-react';
 
 interface AccessibleOutputTabsProps {
   analysis: DocumentAnalysis;
 }
 
+/**
+ * Rich, accessible Markdown parser and renderer that turns raw markdown
+ * (headings, tables, lists, bold text) into clean, styled, high-contrast accessible HTML elements.
+ */
+const AccessibleContentRenderer: React.FC<{ content: string; isRegionalScript?: boolean }> = ({
+  content,
+  isRegionalScript = false,
+}) => {
+  if (!content) return null;
+
+  const lines = content.split('\n');
+  const elements: React.ReactNode[] = [];
+
+  let inTable = false;
+  let tableHeaders: string[] = [];
+  let tableRows: string[][] = [];
+  let tableKey = 0;
+
+  const flushTable = () => {
+    if (tableHeaders.length > 0) {
+      const currentHeaders = [...tableHeaders];
+      const currentRows = [...tableRows];
+      elements.push(
+        <div
+          key={`tbl-${tableKey++}`}
+          className="my-5 overflow-hidden rounded-2xl border-2 border-[var(--border-strong)] bg-white shadow-sm"
+        >
+          <div className="p-3 bg-amber-50 border-b-2 border-[var(--border-strong)] flex items-center gap-2 text-xs font-black text-amber-950">
+            <TableIcon className="h-4 w-4 text-amber-700" />
+            <span>Accessible Structured Data Table</span>
+          </div>
+          <div className="overflow-x-auto">
+            <table className="w-full text-left text-xs border-collapse" role="table">
+              <thead className="bg-[var(--bg-secondary)] text-[var(--text-primary)] border-b-2 border-[var(--border-strong)] font-black">
+                <tr>
+                  {currentHeaders.map((h, hi) => (
+                    <th
+                      key={hi}
+                      scope="col"
+                      className="py-3 px-4 text-xs font-black text-[var(--text-primary)] border-r border-[var(--border-subtle)] last:border-r-0"
+                    >
+                      {h}
+                    </th>
+                  ))}
+                </tr>
+              </thead>
+              <tbody className="divide-y divide-[var(--border-subtle)]">
+                {currentRows.map((r, ri) => (
+                  <tr key={ri} className="hover:bg-amber-50/50 transition-colors">
+                    {r.map((cell, ci) => (
+                      <td
+                        key={ci}
+                        className={`py-3 px-4 text-xs ${
+                          ci === 0 ? 'font-bold text-[var(--text-primary)]' : 'text-[var(--text-secondary)] font-medium'
+                        } border-r border-[var(--border-subtle)] last:border-r-0`}
+                      >
+                        {cell}
+                      </td>
+                    ))}
+                  </tr>
+                ))}
+              </tbody>
+            </table>
+          </div>
+        </div>
+      );
+    }
+    tableHeaders = [];
+    tableRows = [];
+    inTable = false;
+  };
+
+  for (let i = 0; i < lines.length; i++) {
+    const line = lines[i].trim();
+
+    if (!line) {
+      if (inTable) flushTable();
+      continue;
+    }
+
+    // Markdown Table Detection
+    if (line.includes('|') && line.split('|').length >= 3) {
+      if (line.includes('---')) {
+        continue;
+      }
+      const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
+      if (cells.length > 0) {
+        if (!inTable) {
+          inTable = true;
+          tableHeaders = cells;
+        } else {
+          tableRows.push(cells);
+        }
+      }
+      continue;
+    } else {
+      if (inTable) flushTable();
+    }
+
+    // Headings
+    if (line.startsWith('# ')) {
+      elements.push(
+        <h1
+          key={`h1-${i}`}
+          className="text-xl sm:text-2xl font-black text-[var(--text-primary)] mt-6 mb-3 pb-2 border-b-2 border-[var(--border-strong)] flex items-center gap-2"
+        >
+          <span>{line.replace(/^#\s+/, '')}</span>
+        </h1>
+      );
+    } else if (line.startsWith('## ')) {
+      elements.push(
+        <h2
+          key={`h2-${i}`}
+          className="text-base sm:text-lg font-black text-[var(--text-primary)] mt-5 mb-2 flex items-center gap-2"
+        >
+          <span className="h-2 w-2 rounded-full bg-[#059669]" />
+          <span>{line.replace(/^##\s+/, '')}</span>
+        </h2>
+      );
+    } else if (line.startsWith('### ')) {
+      elements.push(
+        <h3
+          key={`h3-${i}`}
+          className="text-sm sm:text-base font-black text-[var(--text-primary)] mt-4 mb-2"
+        >
+          {line.replace(/^###\s+/, '')}
+        </h3>
+      );
+    } else if (line.startsWith('* ') || line.startsWith('- ')) {
+      // Bullet list items
+      const cleanText = line.replace(/^[*|-]\s*/, '');
+      elements.push(
+        <div
+          key={`li-${i}`}
+          className="flex items-start gap-2.5 my-2 p-2.5 rounded-xl bg-white border border-[var(--border-color)] text-xs text-[var(--text-primary)] font-semibold shadow-xs"
+        >
+          <CheckCircle2 className="h-4 w-4 text-[#059669] shrink-0 mt-0.5" />
+          <span>{cleanText}</span>
+        </div>
+      );
+    } else if (line === '---') {
+      elements.push(<hr key={`hr-${i}`} className="my-6 border-t-2 border-[var(--border-strong)]" />);
+    } else {
+      // Regular Paragraph
+      elements.push(
+        <p
+          key={`p-${i}`}
+          className={`text-xs sm:text-sm text-[var(--text-primary)] leading-relaxed my-2.5 font-medium ${
+            isRegionalScript ? 'leading-loose tracking-wide' : ''
+          }`}
+        >
+          {line}
+        </p>
+      );
+    }
+  }
+
+  if (inTable) flushTable();
+
+  return <div className="space-y-1">{elements}</div>;
+};
+
 export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ analysis }) => {
   const [activeTab, setActiveTab] = useState<string>('simplified');
   const [activeLanguage, setActiveLanguage] = useState<string>('te');
   const [copied, setCopied] = useState(false);
+  const [htmlViewMode, setHtmlViewMode] = useState<'preview' | 'code'>('preview');
 
   const out = analysis.transformedOutput;
   const verification = analysis.verification;
@@ -38,7 +204,6 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
       <div className="p-8 rounded-3xl border-2 border-[var(--border-strong)] bg-white text-center text-xs text-[var(--text-muted)] font-medium">
         Transformations have not yet been generated for this document. Click &ldquo;Transform Content&rdquo; in the audit report.
       </div>
-
     );
   }
 
@@ -145,22 +310,27 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
                   Key Points & Action Steps:
                 </h3>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
-                  {out.stepByStepGuide.map((step: string, idx: number) => (
-                    <div
-                      key={idx}
-                      className="p-3.5 rounded-2xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] leading-relaxed font-semibold shadow-sm"
-                    >
-                      <span className="font-black text-[#059669] mr-1.5 font-mono">0{idx + 1}.</span>
-                      {step}
-                    </div>
-                  ))}
+                  {out.stepByStepGuide.map((step: string, idx: number) => {
+                    const cleanStep = step.replace(/^[*•\-\d.]+\s*/, '').trim();
+                    return (
+                      <div
+                        key={idx}
+                        className="p-3.5 rounded-2xl border-2 border-[var(--border-strong)] bg-white text-xs text-[var(--text-primary)] leading-relaxed font-semibold shadow-xs flex items-start gap-2"
+                      >
+                        <span className="font-black text-[#059669] font-mono shrink-0">
+                          0{idx + 1}.
+                        </span>
+                        <span>{cleanStep}</span>
+                      </div>
+                    );
+                  })}
                 </div>
               </div>
             )}
 
-            {/* Plain prose */}
-            <div className="p-6 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs sm:text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-line font-medium shadow-inner">
-              {out.simplifiedVersion}
+            {/* Rich formatted prose */}
+            <div className="p-6 sm:p-8 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] shadow-inner">
+              <AccessibleContentRenderer content={out.simplifiedVersion} />
             </div>
           </div>
         )}
@@ -189,11 +359,11 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
 
             {out.translations[selectedLang] ? (
               <div className="space-y-4">
-                <h3 className="text-base font-black text-[var(--text-primary)]">
-                  {out.translations[selectedLang].title}
-                </h3>
-                <div className="p-6 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs sm:text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-line font-medium">
-                  {out.translations[selectedLang].content}
+                <div className="p-6 sm:p-8 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] shadow-inner">
+                  <AccessibleContentRenderer
+                    content={out.translations[selectedLang].content}
+                    isRegionalScript={true}
+                  />
                 </div>
               </div>
             ) : (
@@ -239,7 +409,6 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
                     <p className="text-xs text-[var(--text-primary)] bg-white p-3 rounded-xl border border-[var(--border-strong)] font-mono font-bold">
                       &ldquo;{img.altText}&rdquo;
                     </p>
-
                   </div>
 
                   <div>
@@ -268,8 +437,8 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
         {/* TAB 4: ACCESSIBLE TEXT */}
         {activeTab === 'accessible_text' && (
           <div className="space-y-4">
-            <div className="p-6 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs sm:text-sm text-[var(--text-primary)] leading-relaxed whitespace-pre-line font-mono font-medium shadow-inner">
-              {out.accessibleText}
+            <div className="p-6 sm:p-8 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] shadow-inner">
+              <AccessibleContentRenderer content={out.accessibleText} />
             </div>
           </div>
         )}
@@ -288,21 +457,60 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
         {/* TAB 6: SCREEN READER HTML */}
         {activeTab === 'screen_reader' && (
           <div className="space-y-4">
-            <div className="flex items-center justify-between">
-              <span className="text-xs font-black text-[var(--text-primary)]">
-                Semantic HTML5 Output with ARIA Landmarks
-              </span>
+            <div className="flex items-center justify-between pb-2 border-b border-[var(--border-strong)]">
+              <div className="flex items-center gap-2">
+                <button
+                  type="button"
+                  onClick={() => setHtmlViewMode('preview')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
+                    htmlViewMode === 'preview'
+                      ? 'bg-amber-200 text-amber-950 border-[var(--border-strong)] shadow-[2px_2px_0_0_#192138]'
+                      : 'bg-white text-[var(--text-secondary)] border-[var(--border-color)]'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Eye className="h-3.5 w-3.5" />
+                    <span>Rendered Preview</span>
+                  </span>
+                </button>
+                <button
+                  type="button"
+                  onClick={() => setHtmlViewMode('code')}
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
+                    htmlViewMode === 'code'
+                      ? 'bg-amber-200 text-amber-950 border-[var(--border-strong)] shadow-[2px_2px_0_0_#192138]'
+                      : 'bg-white text-[var(--text-secondary)] border-[var(--border-color)]'
+                  }`}
+                >
+                  <span className="flex items-center gap-1.5">
+                    <Code className="h-3.5 w-3.5" />
+                    <span>Raw HTML5 Code</span>
+                  </span>
+                </button>
+              </div>
+
               <button
                 type="button"
                 onClick={() => handleCopy(out.screenReaderHtml)}
-                className="text-xs font-black text-[#059669] hover:underline"
+                className="text-xs font-black text-[#059669] hover:underline flex items-center gap-1"
               >
-                Copy HTML Code
+                <Copy className="h-3.5 w-3.5" />
+                <span>Copy HTML</span>
               </button>
             </div>
-            <pre className="p-6 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-[11px] font-mono text-emerald-900 overflow-x-auto leading-relaxed max-h-[500px] font-bold">
-              {out.screenReaderHtml}
-            </pre>
+
+            {htmlViewMode === 'preview' ? (
+              <div className="p-6 sm:p-8 rounded-3xl border-2 border-[var(--border-strong)] bg-white shadow-inner">
+                <div
+                  className="prose max-w-none text-xs sm:text-sm"
+                  dangerouslySetInnerHTML={{ __html: out.screenReaderHtml }}
+                />
+              </div>
+            ) : (
+              <pre className="p-6 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-[11px] font-mono text-emerald-950 overflow-x-auto leading-relaxed max-h-[500px] font-bold">
+                {out.screenReaderHtml}
+              </pre>
+            )}
           </div>
         )}
 
