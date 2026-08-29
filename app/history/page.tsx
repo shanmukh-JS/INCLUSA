@@ -27,10 +27,10 @@ export default function HistoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  const loadData = () => {
+  const loadData = React.useCallback(() => {
     if (!user) return;
     setAnalyses(documentStore.getAllAnalyses(user.id));
-  };
+  }, [user]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -42,7 +42,8 @@ export default function HistoryPage() {
     if (user) {
       loadData();
     }
-  }, [user?.id]);
+  }, [user, loadData]);
+
 
   const handleDelete = (id: string) => {
     if (!user) return;

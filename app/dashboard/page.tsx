@@ -25,12 +25,12 @@ export default function DashboardPage() {
     documentsImprovedCount: 0,
   });
 
-  const loadData = () => {
+  const loadData = React.useCallback(() => {
     if (!user) return;
     const all = documentStore.getAllAnalyses(user.id);
     setAnalyses(all);
     setStats(documentStore.getDashboardStats(user.id));
-  };
+  }, [user]);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -42,7 +42,8 @@ export default function DashboardPage() {
     if (user) {
       loadData();
     }
-  }, [user?.id]);
+  }, [user, loadData]);
+
 
   const handleDelete = (id: string) => {
     if (!user) return;

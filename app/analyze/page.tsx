@@ -48,23 +48,7 @@ function AnalyzePageContent() {
     }
   }, [user, isLoading, router]);
 
-  // Auto-launch sample if specified in URL query
-  useEffect(() => {
-    if (sampleParam && !isProcessing && !completedAnalysis && user) {
-      const sample = SAMPLE_DOCUMENTS.find((s: any) => s.id === sampleParam);
-      if (sample) {
-        handleStartAnalysis({
-          inputType: sample.inputType,
-          title: sample.title,
-          fileName: sample.fileName,
-          rawText: sample.rawText,
-          fileSizeBytes: sample.rawText.length,
-        });
-      }
-    }
-  }, [sampleParam, user]);
-
-  const handleStartAnalysis = async (data: {
+  const handleStartAnalysis = React.useCallback(async (data: {
     inputType: DocumentInputType;
     title: string;
     fileName?: string;
@@ -131,7 +115,24 @@ function AnalyzePageContent() {
       setErrorMessage(err.message || 'An error occurred during agent pipeline execution.');
       setIsProcessing(false);
     }
-  };
+  }, [user, router]);
+
+  // Auto-launch sample if specified in URL query
+  useEffect(() => {
+    if (sampleParam && !isProcessing && !completedAnalysis && user) {
+      const sample = SAMPLE_DOCUMENTS.find((s: any) => s.id === sampleParam);
+      if (sample) {
+        handleStartAnalysis({
+          inputType: sample.inputType,
+          title: sample.title,
+          fileName: sample.fileName,
+          rawText: sample.rawText,
+          fileSizeBytes: sample.rawText.length,
+        });
+      }
+    }
+  }, [sampleParam, user, isProcessing, completedAnalysis, handleStartAnalysis]);
+
 
   if (isLoading) {
     return (

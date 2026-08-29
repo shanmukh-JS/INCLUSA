@@ -223,11 +223,13 @@ export const MultimodalDropzone: React.FC<MultimodalDropzoneProps> = ({
             {filePreviewUrl ? (
               <div className="flex flex-col items-center gap-3 mb-2">
                 <div className="relative rounded-2xl overflow-hidden border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] max-h-40 max-w-full">
+                  {/* eslint-disable-next-line @next/next/no-img-element */}
                   <img
                     src={filePreviewUrl}
                     alt="Upload Preview"
                     className="max-h-36 object-contain bg-white"
                   />
+
                   <button
                     type="button"
                     onClick={handleClearFile}
