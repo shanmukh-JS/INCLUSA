@@ -11,6 +11,7 @@ import { QuickUploadCard } from '@/components/dashboard/QuickUploadCard';
 import { PlusCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
 import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api-client';
 
 export default function DashboardPage() {
   const router = useRouter();
@@ -25,10 +26,20 @@ export default function DashboardPage() {
     documentsImprovedCount: 0,
   });
 
-  const loadData = React.useCallback(() => {
+  const loadData = React.useCallback(async () => {
     if (!user) return;
-    const all = documentStore.getAllAnalyses(user.id);
-    setAnalyses(all);
+    try {
+      const res = await api.getDocuments();
+      if (res && res.success && Array.isArray(res.data)) {
+        setAnalyses(res.data);
+      } else {
+        const all = documentStore.getAllAnalyses(user.id);
+        setAnalyses(all);
+      }
+    } catch {
+      const all = documentStore.getAllAnalyses(user.id);
+      setAnalyses(all);
+    }
     setStats(documentStore.getDashboardStats(user.id));
   }, [user]);
 
@@ -44,10 +55,14 @@ export default function DashboardPage() {
     }
   }, [user, loadData]);
 
-
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!user) return;
     if (window.confirm('Are you sure you want to delete this analysis record?')) {
+      try {
+        await api.deleteDocument(id);
+      } catch (e) {
+        console.warn('API delete error:', e);
+      }
       documentStore.deleteAnalysis(id, user.id);
       loadData();
     }

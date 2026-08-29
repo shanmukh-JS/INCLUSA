@@ -17,6 +17,7 @@ interface AuthContextType {
   resendConfirmationEmail: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
   refreshSession: () => Promise<void>;
   getToken: () => string | null;
+  fetchProtected: (url: string, options?: RequestInit) => Promise<Response>;
 }
 
 const AUTH_STORAGE_KEY = 'inclusa_verified_session_v2';
@@ -274,6 +275,21 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     return session?.token || null;
   };
 
+  const fetchProtected = useCallback(
+    async (url: string, options: RequestInit = {}): Promise<Response> => {
+      const token = session?.token;
+      const headers = new Headers(options.headers || {});
+      if (token) {
+        headers.set('Authorization', `Bearer ${token}`);
+      }
+      return fetch(url, {
+        ...options,
+        headers,
+      });
+    },
+    [session?.token]
+  );
+
   return (
     <AuthContext.Provider
       value={{
@@ -289,6 +305,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         resendConfirmationEmail,
         refreshSession,
         getToken,
+        fetchProtected,
       }}
     >
       {children}

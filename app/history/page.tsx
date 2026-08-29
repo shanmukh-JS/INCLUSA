@@ -19,6 +19,7 @@ import {
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
 
 import { useAuth } from '@/context/AuthContext';
+import { api } from '@/lib/api-client';
 
 export default function HistoryPage() {
   const router = useRouter();
@@ -27,9 +28,18 @@ export default function HistoryPage() {
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
-  const loadData = React.useCallback(() => {
+  const loadData = React.useCallback(async () => {
     if (!user) return;
-    setAnalyses(documentStore.getAllAnalyses(user.id));
+    try {
+      const res = await api.getHistory(1, 100);
+      if (res && res.success && res.data?.analyses) {
+        setAnalyses(res.data.analyses);
+      } else {
+        setAnalyses(documentStore.getAllAnalyses(user.id));
+      }
+    } catch {
+      setAnalyses(documentStore.getAllAnalyses(user.id));
+    }
   }, [user]);
 
   useEffect(() => {
@@ -44,10 +54,14 @@ export default function HistoryPage() {
     }
   }, [user, loadData]);
 
-
-  const handleDelete = (id: string) => {
+  const handleDelete = async (id: string) => {
     if (!user) return;
     if (window.confirm('Delete this historical analysis record?')) {
+      try {
+        await api.deleteDocument(id);
+      } catch (e) {
+        console.warn('API delete error:', e);
+      }
       documentStore.deleteAnalysis(id, user.id);
       loadData();
     }

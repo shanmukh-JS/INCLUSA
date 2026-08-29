@@ -3,6 +3,8 @@ import { getAuthenticatedUser } from '@/lib/auth/server-auth';
 import { fetchAnalysesFromSupabase, saveAnalysisToSupabase, deleteAnalysisFromSupabase } from '@/lib/supabase/db';
 import { documentStore } from '@/lib/storage/document-store';
 
+export const dynamic = 'force-dynamic';
+
 /**
  * GET /api/documents
  * Retrieve all analyzed documents belonging to the authenticated user
@@ -14,10 +16,10 @@ export async function GET(req: NextRequest) {
       return NextResponse.json({ error: 'Unauthorized' }, { status: 401 });
     }
 
-    const cloudDocs = await fetchAnalysesFromSupabase();
+    // Pass userId to filter at the database level (defense in depth alongside RLS)
+    const cloudDocs = await fetchAnalysesFromSupabase(authUser.id);
     if (cloudDocs && cloudDocs.length > 0) {
-      const userDocs = cloudDocs.filter((d) => !d.userId || d.userId === authUser.id);
-      return NextResponse.json({ success: true, source: 'supabase', count: userDocs.length, data: userDocs });
+      return NextResponse.json({ success: true, source: 'supabase', count: cloudDocs.length, data: cloudDocs });
     }
     const localDocs = documentStore.getAllAnalyses(authUser.id);
     return NextResponse.json({ success: true, source: 'local', count: localDocs.length, data: localDocs });

@@ -1,19 +1,22 @@
 import { NextRequest, NextResponse } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth/server-auth';
+import { ttsRequestSchema } from '@/lib/validation/schemas';
+import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/utils/api-response';
 
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(req);
     if (!authUser) {
-      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+      return apiUnauthorized('Authentication required.');
     }
 
-    const { text, voice = 'alloy', speed = 1.0 } = await req.json();
-
-    if (!text || typeof text !== 'string') {
-      return NextResponse.json({ error: 'Text is required for speech synthesis' }, { status: 400 });
+    const body = await req.json();
+    const parsed = ttsRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiValidationError(parsed.error);
     }
 
+    const { text, voice, speed } = parsed.data;
     const apiKey = process.env.OPENAI_API_KEY;
 
     // If live OpenAI key is configured, synthesize high quality neural speech
@@ -48,13 +51,13 @@ export async function POST(req: NextRequest) {
     }
 
     // Graceful instruction for client-side Web Speech Synthesis API
-    return NextResponse.json({
+    return apiSuccess({
       useClientSynthesis: true,
       text: text,
       provider: 'Web Speech API (SpeechSynthesis)',
       message: 'Synthesizing speech via native browser audio engine',
     });
   } catch (err: any) {
-    return NextResponse.json({ error: err.message || 'TTS generation failed' }, { status: 500 });
+    return apiError(err.message || 'TTS generation failed');
   }
 }

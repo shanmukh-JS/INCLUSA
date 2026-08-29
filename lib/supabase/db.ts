@@ -118,16 +118,22 @@ export async function saveAnalysisToSupabase(analysis: DocumentAnalysis): Promis
   }
 }
 
-export async function fetchAnalysesFromSupabase(): Promise<DocumentAnalysis[]> {
+export async function fetchAnalysesFromSupabase(userId?: string): Promise<DocumentAnalysis[]> {
   const supabase = getSupabaseClient();
   if (!supabase) return [];
 
   try {
-    const { data, error } = await supabase
+    let query = supabase
       .from('analyses')
       .select('*, documents(*)')
       .order('created_at', { ascending: false });
 
+    // Filter by user at the database level when userId is provided
+    if (userId) {
+      query = query.eq('user_id', userId);
+    }
+
+    const { data, error } = await query;
     if (error || !data) return [];
 
     return data.map((row: any) => ({

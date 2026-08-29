@@ -1,38 +1,34 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth/server-auth';
 import { transformationAgent } from '@/lib/agents/transformation-engine';
 import { DEFAULT_ACCESSIBILITY_PROFILE } from '@/lib/storage/document-store';
+import { transformRequestSchema } from '@/lib/validation/schemas';
+import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/utils/api-response';
 
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(req);
     if (!authUser) {
-      return NextResponse.json({ error: 'Unauthorized: Valid authentication session required.' }, { status: 401 });
+      return apiUnauthorized('Valid authentication session required.');
     }
 
     const body = await req.json();
-    const { structuredContent, transformations, profile } = body;
-
-    if (!structuredContent || !transformations) {
-      return NextResponse.json(
-        { error: 'Missing required fields: structuredContent, transformations' },
-        { status: 400 }
-      );
+    const parsed = transformRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiValidationError(parsed.error);
     }
 
-    const userProfile = profile || DEFAULT_ACCESSIBILITY_PROFILE;
+    const { structuredContent, transformations, profile } = parsed.data;
+    const userProfile = (profile || DEFAULT_ACCESSIBILITY_PROFILE) as any;
     const output = await transformationAgent.transform(
-      structuredContent,
-      transformations,
+      structuredContent as any,
+      transformations as any,
       userProfile
     );
 
-    return NextResponse.json({
-      success: true,
-      transformedOutput: output,
-    });
+    return apiSuccess({ transformedOutput: output });
   } catch (err: any) {
     console.error('API /api/transform error:', err);
-    return NextResponse.json({ error: err.message || 'Transformation failed' }, { status: 500 });
+    return apiError(err.message || 'Transformation failed');
   }
 }

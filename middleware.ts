@@ -51,6 +51,15 @@ export function middleware(req: NextRequest) {
       );
     }
 
+    // Validate JWT structure: must be 3 non-empty base64url segments separated by dots
+    const jwtParts = token.split('.');
+    if (jwtParts.length !== 3 || jwtParts.some((part) => part.length === 0)) {
+      return NextResponse.json(
+        { error: 'Unauthorized: Malformed authentication token.' },
+        { status: 401 }
+      );
+    }
+
     return NextResponse.next();
   }
 

@@ -1,49 +1,44 @@
-import { NextRequest, NextResponse } from 'next/server';
+import { NextRequest } from 'next/server';
 import { getAuthenticatedUser } from '@/lib/auth/server-auth';
 import { verificationAgent } from '@/lib/agents/verification-engine';
 import { explanationAgent } from '@/lib/agents/explanation-agent';
 import { DEFAULT_ACCESSIBILITY_PROFILE } from '@/lib/storage/document-store';
+import { verifyRequestSchema } from '@/lib/validation/schemas';
+import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/utils/api-response';
 
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(req);
     if (!authUser) {
-      return NextResponse.json({ error: 'Unauthorized: Valid authentication session required.' }, { status: 401 });
+      return apiUnauthorized('Valid authentication session required.');
     }
 
     const body = await req.json();
-    const { documentId, initialIssues, transformations, transformedOutput, profile } = body;
-
-    if (!documentId || !initialIssues || !transformations || !transformedOutput) {
-      return NextResponse.json(
-        { error: 'Missing required fields for verification' },
-        { status: 400 }
-      );
+    const parsed = verifyRequestSchema.safeParse(body);
+    if (!parsed.success) {
+      return apiValidationError(parsed.error);
     }
 
-    const userProfile = profile || DEFAULT_ACCESSIBILITY_PROFILE;
+    const { documentId, initialIssues, transformations, transformedOutput, profile } = parsed.data;
+    const userProfile = (profile || DEFAULT_ACCESSIBILITY_PROFILE) as any;
 
     const verification = verificationAgent.verify(
       documentId,
-      initialIssues,
-      transformations,
-      transformedOutput
+      initialIssues as any,
+      transformations as any,
+      transformedOutput as any
     );
 
     const explanation = explanationAgent.explain({
-      initialIssues,
-      transformations,
+      initialIssues: initialIssues as any,
+      transformations: transformations as any,
       verification,
       profile: userProfile,
     });
 
-    return NextResponse.json({
-      success: true,
-      verification,
-      explanation,
-    });
+    return apiSuccess({ verification, explanation });
   } catch (err: any) {
     console.error('API /api/verify error:', err);
-    return NextResponse.json({ error: err.message || 'Verification failed' }, { status: 500 });
+    return apiError(err.message || 'Verification failed');
   }
 }
