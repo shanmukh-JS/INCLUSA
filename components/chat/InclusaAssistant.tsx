@@ -181,7 +181,7 @@ export const InclusaAssistant: React.FC<InclusaAssistantProps> = ({
                       <div key={ci} className="pl-2 border-l-2 border-[#059669]">
                         {c.section && <span className="font-bold text-[var(--text-primary)]">[{c.section}] </span>}
                         {c.pageNumber && <span>Page {c.pageNumber}: </span>}
-                        <span>"{c.snippet}"</span>
+                        <span>&ldquo;{c.snippet}&rdquo;</span>
                       </div>
                     ))}
                   </div>

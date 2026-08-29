@@ -10,15 +10,14 @@ import {
   saveAnalysisToSupabase,
   deleteAnalysisFromSupabase,
   fetchAnalysesFromSupabase,
-  isSupabaseConfigured,
 } from '../supabase/db';
 
 const STORAGE_KEYS = {
-  ANALYSES: 'inclusa_analyses_v1',
-  PROFILES: 'inclusa_profiles_v1',
-  ACTIVE_PROFILE_ID: 'inclusa_active_profile_id_v1',
-  CHAT_MESSAGES: 'inclusa_chat_messages_v1',
-  REPORTS: 'inclusa_reports_v1',
+  ANALYSES: 'inclusa_analyses_v2',
+  PROFILES: 'inclusa_profiles_v2',
+  ACTIVE_PROFILE_ID: 'inclusa_active_profile_id_v2',
+  CHAT_MESSAGES: 'inclusa_chat_messages_v2',
+  REPORTS: 'inclusa_reports_v2',
 };
 
 export const DEFAULT_ACCESSIBILITY_PROFILE: AccessibilityProfile = {
@@ -86,7 +85,7 @@ class DocumentStore {
     return typeof window !== 'undefined' && typeof window.localStorage !== 'undefined';
   }
 
-  // --- ANALYSES (User-Isolated) ---
+  // --- ANALYSES (Strict User-Isolation & IDOR Protection) ---
 
   public getAllAnalyses(userId?: string): DocumentAnalysis[] {
     let all: DocumentAnalysis[] = [];
@@ -105,19 +104,41 @@ class DocumentStore {
     }
 
     if (userId) {
-      return all.filter((a) => !a.userId || a.userId === userId || a.id.startsWith('demo-'));
+      // Return user's private documents plus public demo samples
+      return all.filter((a) => a.userId === userId || a.id.startsWith('demo-'));
     }
-    return all;
+    
+    // Unauthenticated: only expose public demo samples
+    return all.filter((a) => a.id.startsWith('demo-'));
   }
 
   public getAnalysisById(id: string, userId?: string): DocumentAnalysis | undefined {
-    const all = this.getAllAnalyses();
+    let all: DocumentAnalysis[] = [];
+    if (this.isClient()) {
+      try {
+        const raw = localStorage.getItem(STORAGE_KEYS.ANALYSES);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          all = Array.isArray(parsed) ? parsed : [];
+        }
+      } catch (e) {
+        console.error('Error reading analyses from localStorage', e);
+      }
+    } else {
+      all = Array.from(memoryStore.analyses.values());
+    }
+
     const doc = all.find((a) => a.id === id);
     if (!doc) return undefined;
 
-    // IDOR Protection: Check user ownership unless demo document
-    if (userId && doc.userId && doc.userId !== userId && !doc.id.startsWith('demo-')) {
-      console.warn(`[IDOR Protected] User ${userId} attempted to access document ${id} owned by ${doc.userId}`);
+    // Public demo documents are accessible to anyone
+    if (doc.id.startsWith('demo-')) {
+      return doc;
+    }
+
+    // IDOR Protection: Strictly check user ownership
+    if (!userId || (doc.userId && doc.userId !== userId)) {
+      console.warn(`[IDOR Protection] Access denied for document ${id} to user ${userId || 'anonymous'}`);
       return undefined;
     }
 
@@ -125,9 +146,10 @@ class DocumentStore {
   }
 
   public saveAnalysis(analysis: DocumentAnalysis, userId?: string): void {
+    const ownerId = userId || analysis.userId || '';
     const scopedAnalysis: DocumentAnalysis = {
       ...analysis,
-      userId: userId || analysis.userId || 'user_default_inclusa_owner',
+      userId: ownerId,
       updatedAt: new Date().toISOString(),
     };
 
@@ -135,7 +157,12 @@ class DocumentStore {
 
     if (this.isClient()) {
       try {
-        const all = this.getAllAnalyses();
+        let all: DocumentAnalysis[] = [];
+        const raw = localStorage.getItem(STORAGE_KEYS.ANALYSES);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          all = Array.isArray(parsed) ? parsed : [];
+        }
         const existingIdx = all.findIndex((a) => a.id === scopedAnalysis.id);
         if (existingIdx >= 0) {
           all[existingIdx] = scopedAnalysis;
@@ -148,8 +175,8 @@ class DocumentStore {
       }
     }
 
-    // Async sync to Supabase Cloud if credentials exist
-    if (typeof window !== 'undefined') {
+    // Async sync to Supabase Cloud if authenticated
+    if (typeof window !== 'undefined' && ownerId) {
       saveAnalysisToSupabase(scopedAnalysis).catch((err) => {
         console.warn('Supabase cloud sync deferred:', err);
       });
@@ -166,8 +193,14 @@ class DocumentStore {
 
     if (this.isClient()) {
       try {
-        const all = this.getAllAnalyses().filter((a) => a.id !== id);
-        localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(all));
+        let all: DocumentAnalysis[] = [];
+        const raw = localStorage.getItem(STORAGE_KEYS.ANALYSES);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          all = Array.isArray(parsed) ? parsed : [];
+        }
+        const filtered = all.filter((a) => a.id !== id);
+        localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(filtered));
       } catch (e) {
         console.error('Error deleting analysis from localStorage', e);
       }
@@ -186,23 +219,34 @@ class DocumentStore {
    * Pull all historical analyses from Supabase and merge with local storage
    */
   public async syncWithSupabaseCloud(userId?: string): Promise<{ count: number }> {
+    if (!userId) return { count: 0 };
     try {
       const cloudAnalyses = await fetchAnalysesFromSupabase();
       if (cloudAnalyses && cloudAnalyses.length > 0) {
-        const local = this.getAllAnalyses();
+        const userCloud = cloudAnalyses.filter((ca) => ca.userId === userId || !ca.userId);
+        let local: DocumentAnalysis[] = [];
+        if (this.isClient()) {
+          const raw = localStorage.getItem(STORAGE_KEYS.ANALYSES);
+          if (raw) {
+            const parsed = JSON.parse(raw);
+            local = Array.isArray(parsed) ? parsed : [];
+          }
+        } else {
+          local = Array.from(memoryStore.analyses.values());
+        }
+
         const localMap = new Map(local.map((a) => [a.id, a]));
         
-        // Merge cloud records
-        cloudAnalyses.forEach((ca) => {
+        userCloud.forEach((ca) => {
           if (!localMap.has(ca.id)) {
-            local.push(ca);
+            local.push({ ...ca, userId });
           }
         });
 
         if (this.isClient()) {
           localStorage.setItem(STORAGE_KEYS.ANALYSES, JSON.stringify(local));
         }
-        return { count: cloudAnalyses.length };
+        return { count: userCloud.length };
       }
     } catch (e) {
       console.error('Failed to sync with Supabase cloud:', e);
@@ -283,7 +327,7 @@ class DocumentStore {
     if (userId) {
       return profiles.filter((p) => !p.userId || p.userId === userId || p.id === DEFAULT_ACCESSIBILITY_PROFILE.id);
     }
-    return profiles;
+    return [DEFAULT_ACCESSIBILITY_PROFILE];
   }
 
   public getActiveProfile(userId?: string): AccessibilityProfile {
@@ -306,7 +350,7 @@ class DocumentStore {
   public saveProfile(profile: AccessibilityProfile, userId?: string): void {
     const scopedProfile: AccessibilityProfile = {
       ...profile,
-      userId: userId || profile.userId || 'user_default_inclusa_owner',
+      userId: userId || profile.userId || '',
       updatedAt: new Date().toISOString(),
     };
 
@@ -314,7 +358,12 @@ class DocumentStore {
 
     if (this.isClient()) {
       try {
-        const profiles = this.getAllProfiles();
+        let profiles: AccessibilityProfile[] = [];
+        const raw = localStorage.getItem(STORAGE_KEYS.PROFILES);
+        if (raw) {
+          const parsed = JSON.parse(raw);
+          if (Array.isArray(parsed)) profiles = parsed;
+        }
         const idx = profiles.findIndex((p) => p.id === scopedProfile.id);
         if (idx >= 0) {
           profiles[idx] = scopedProfile;
@@ -370,19 +419,22 @@ class DocumentStore {
 
   // --- REPORTS ---
 
-  public getReportById(id: string): AccessibilityReport | undefined {
+  public getReportById(id: string, userId?: string): AccessibilityReport | undefined {
+    let report: AccessibilityReport | undefined;
     if (this.isClient()) {
       try {
         const raw = localStorage.getItem(`${STORAGE_KEYS.REPORTS}_${id}`);
-        if (raw) return JSON.parse(raw);
+        if (raw) report = JSON.parse(raw);
       } catch (e) {
         console.error('Error reading report', e);
       }
+    } else {
+      report = memoryStore.reports.get(id);
     }
-    return memoryStore.reports.get(id);
+    return report;
   }
 
-  public saveReport(report: AccessibilityReport): void {
+  public saveReport(report: AccessibilityReport, userId?: string): void {
     memoryStore.reports.set(report.id, report);
     if (this.isClient()) {
       try {

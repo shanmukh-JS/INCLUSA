@@ -5,23 +5,22 @@ import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
-import { UserPlus, Mail, Lock, User, AlertCircle, CheckCircle2, Info } from 'lucide-react';
+import { UserPlus, Mail, Lock, User, AlertCircle, CheckCircle2 } from 'lucide-react';
 
 export default function SignupPage() {
   const router = useRouter();
-  const { signUp, isDemoMode } = useAuth();
+  const { signUp } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
   const [confirmPassword, setConfirmPassword] = useState('');
   const [errorMsg, setErrorMsg] = useState<string | null>(null);
+  const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
   const isLengthValid = password.length >= 6;
   const isMatchValid = password.length > 0 && password === confirmPassword;
-
-  const [successMsg, setSuccessMsg] = useState<string | null>(null);
 
   const handleSubmit = async (e: React.FormEvent) => {
     e.preventDefault();
@@ -50,10 +49,10 @@ export default function SignupPage() {
     setIsSubmitting(false);
 
     if (result.success) {
-      if (isDemoMode) {
-        router.push('/dashboard');
+      if (result.message) {
+        setSuccessMsg(result.message);
       } else {
-        setSuccessMsg('Account created successfully! If email confirmation is enabled in your Supabase project, please check your inbox to confirm your email before signing in.');
+        router.push('/dashboard');
       }
     } else {
       setErrorMsg(result.error || 'Failed to create account. Please try again.');
@@ -76,7 +75,7 @@ export default function SignupPage() {
         </div>
 
         {successMsg && (
-          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold space-y-2">
+          <div className="p-4 rounded-2xl bg-emerald-50 border border-emerald-300 text-emerald-900 text-xs font-bold space-y-2 animate-fade-in">
             <div className="flex items-center gap-2">
               <CheckCircle2 className="h-5 w-5 shrink-0 text-emerald-600" />
               <span>{successMsg}</span>
@@ -93,7 +92,7 @@ export default function SignupPage() {
         )}
 
         {errorMsg && (
-          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2">
+          <div className="p-3.5 rounded-2xl bg-rose-50 border border-rose-300 text-rose-900 text-xs font-bold flex items-center gap-2 animate-fade-in">
             <AlertCircle className="h-4 w-4 shrink-0 text-rose-600" />
             <span>{errorMsg}</span>
           </div>
@@ -112,7 +111,8 @@ export default function SignupPage() {
                 value={fullName}
                 onChange={(e) => setFullName(e.target.value)}
                 required
-                className="w-full py-2.5 pl-10 pr-4 rounded-xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] font-bold focus:border-[#059669]"
+                disabled={isSubmitting}
+                className="w-full py-2.5 pl-10 pr-4 rounded-xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] font-bold focus:border-[#059669] disabled:opacity-50"
               />
             </div>
           </div>
@@ -129,7 +129,8 @@ export default function SignupPage() {
                 value={email}
                 onChange={(e) => setEmail(e.target.value)}
                 required
-                className="w-full py-2.5 pl-10 pr-4 rounded-xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] font-bold focus:border-[#059669]"
+                disabled={isSubmitting}
+                className="w-full py-2.5 pl-10 pr-4 rounded-xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] font-bold focus:border-[#059669] disabled:opacity-50"
               />
             </div>
           </div>
@@ -146,7 +147,8 @@ export default function SignupPage() {
                 value={password}
                 onChange={(e) => setPassword(e.target.value)}
                 required
-                className="w-full py-2.5 pl-10 pr-4 rounded-xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] font-bold focus:border-[#059669]"
+                disabled={isSubmitting}
+                className="w-full py-2.5 pl-10 pr-4 rounded-xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] font-bold focus:border-[#059669] disabled:opacity-50"
               />
             </div>
           </div>
@@ -163,7 +165,8 @@ export default function SignupPage() {
                 value={confirmPassword}
                 onChange={(e) => setConfirmPassword(e.target.value)}
                 required
-                className="w-full py-2.5 pl-10 pr-4 rounded-xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] font-bold focus:border-[#059669]"
+                disabled={isSubmitting}
+                className="w-full py-2.5 pl-10 pr-4 rounded-xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] text-xs text-[var(--text-primary)] font-bold focus:border-[#059669] disabled:opacity-50"
               />
             </div>
           </div>

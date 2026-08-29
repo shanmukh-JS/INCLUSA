@@ -7,8 +7,9 @@ import { InclusaMascot } from '@/components/ui/InclusaMascot';
 import { Mail, ArrowLeft, CheckCircle2, AlertCircle } from 'lucide-react';
 
 export default function ForgotPasswordPage() {
-  const { resetPassword, isDemoMode } = useAuth();
+  const { resetPassword } = useAuth();
   const [email, setEmail] = useState('');
+
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [submitted, setSubmitted] = useState(false);
   const [errorMsg, setErrorMsg] = useState<string | null>(null);

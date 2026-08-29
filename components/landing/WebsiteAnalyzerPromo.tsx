@@ -75,7 +75,8 @@ export const WebsiteAnalyzerPromo: React.FC = () => {
                 </div>
                 <div className="p-2.5 rounded-xl bg-white border border-[var(--border-color)] flex items-center justify-between">
                   <span className="font-bold text-emerald-700">Language Declaration</span>
-                  <span className="font-mono font-black text-emerald-700">lang="en"</span>
+                  <span className="font-mono font-black text-emerald-700">lang=&quot;en&quot;</span>
+
                 </div>
               </div>
             </div>

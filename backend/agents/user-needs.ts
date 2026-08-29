@@ -1,4 +1,4 @@
-import { AccessibilityIssue, AccessibilityProfile, TransformationItem } from '@/types';
+import { AccessibilityIssue, AccessibilityProfile, TransformationItem } from '../../types';
 
 /**
  * Agent 3 — User Needs Agent

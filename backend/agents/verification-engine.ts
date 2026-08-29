@@ -3,7 +3,7 @@ import {
   TransformationItem,
   TransformedOutput,
   VerificationResult,
-} from '@/types';
+} from '../../types';
 import { calculateVerificationDelta } from '../scoring/accessibility-scorer';
 
 /**

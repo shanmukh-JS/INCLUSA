@@ -5,7 +5,7 @@ import {
   RuleCategory,
   SeverityLevel,
   VerificationResult,
-} from '@/types';
+} from '../types';
 
 // Category Weights (Sum = 1.0 / 100%)
 export const CATEGORY_WEIGHTS: Record<RuleCategory, number> = {

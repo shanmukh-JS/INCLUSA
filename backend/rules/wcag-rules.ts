@@ -1,4 +1,4 @@
-import { RuleCategory, SeverityLevel } from '@/types';
+import { RuleCategory, SeverityLevel } from '../types';
 
 export interface AccessibilityRuleDefinition {
   id: string;

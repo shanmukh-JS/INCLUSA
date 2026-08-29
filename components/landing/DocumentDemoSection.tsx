@@ -32,8 +32,9 @@ export const DocumentDemoSection: React.FC = () => {
             Accessibility You Can Measure.
           </h2>
           <p className="text-sm sm:text-base text-[var(--text-secondary)] font-medium mt-3 leading-relaxed">
-            INCLUSA doesn't just detect barriers — it understands user needs, plans personalized remediations, transforms the content, and mathematically verifies score improvements.
+            INCLUSA doesn&apos;t just detect barriers — it understands user needs, plans personalized remediations, transforms the content, and mathematically verifies score improvements.
           </p>
+
         </div>
 
         {/* 42 -> 94 Dominant Transformation Banner */}

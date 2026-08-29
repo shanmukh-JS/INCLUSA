@@ -27,9 +27,10 @@ export const HowItWorksSection: React.FC = () => {
       title: 'Get Accessible Content',
       subtitle: 'Verified & ready to use',
       description: 'Receive simplified plain text, Telugu/Hindi translations, multi-tier alt descriptions, screen-reader HTML, and verified score improvements.',
-      badge: '100% WCAG Verified',
+      badge: 'Verified WCAG 2.1 Remediations',
       color: 'bg-emerald-100 border-emerald-300 text-emerald-950',
       icon: Sparkles,
+
     },
   ];
 

@@ -9,9 +9,9 @@ interface AuthContextType {
   session: AuthSession | null;
   isAuthenticated: boolean;
   isLoading: boolean;
-  isDemoMode: boolean;
+  isConfigured: boolean;
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
-  signUp: (data: { email: string; password?: string; fullName: string }) => Promise<{ success: boolean; error?: string }>;
+  signUp: (data: { email: string; password?: string; fullName: string }) => Promise<{ success: boolean; error?: string; message?: string }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
   resendConfirmationEmail: (email: string) => Promise<{ success: boolean; message?: string; error?: string }>;
@@ -33,251 +33,237 @@ function clearAuthCookie() {
   }
 }
 
-const DEMO_USER: User = {
-  id: 'usr_demo_developer',
-  email: 'demo@inclusa.ai',
-  fullName: 'INCLUSA Demo User',
-  createdAt: '2026-01-01T00:00:00.000Z',
-};
-
 const AuthContext = createContext<AuthContextType | undefined>(undefined);
 
 export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children }) => {
   const [user, setUser] = useState<User | null>(null);
   const [session, setSession] = useState<AuthSession | null>(null);
   const [isLoading, setIsLoading] = useState(true);
-  const isDemoMode = !isSupabaseConfigured();
+  const isConfigured = isSupabaseConfigured();
 
   const verifyAndRestoreSession = useCallback(async () => {
     setIsLoading(true);
 
-    if (isSupabaseConfigured()) {
-      const supabase = getSupabaseClient();
-      try {
-        const stored = localStorage.getItem(AUTH_STORAGE_KEY);
-        if (stored) {
-          const parsed: AuthSession = JSON.parse(stored);
-          if (parsed.token && supabase) {
-            // Verify cryptographically with Supabase Auth API
-            const { data, error } = await supabase.auth.getUser(parsed.token);
-            if (data?.user && !error) {
-              const verifiedUser: User = {
-                id: data.user.id,
-                email: data.user.email || parsed.user.email,
-                fullName: data.user.user_metadata?.full_name || parsed.user.fullName,
-                createdAt: data.user.created_at || parsed.user.createdAt,
-              };
-              setUser(verifiedUser);
-              setSession(parsed);
-              setAuthCookie(parsed.token);
-              setIsLoading(false);
-              return;
-            }
-          }
-        }
-      } catch (err) {
-        console.warn('Session verification exception:', err);
-      }
-
-      // No active Supabase session
+    if (!isConfigured) {
       setUser(null);
       setSession(null);
       clearAuthCookie();
-      localStorage.removeItem(AUTH_STORAGE_KEY);
+      if (typeof window !== 'undefined') {
+        localStorage.removeItem(AUTH_STORAGE_KEY);
+      }
       setIsLoading(false);
       return;
     }
 
-    // Demo Mode — Local Development fallback
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setUser(null);
+      setSession(null);
+      clearAuthCookie();
+      setIsLoading(false);
+      return;
+    }
+
     try {
-      const stored = localStorage.getItem(AUTH_STORAGE_KEY);
+      const stored = typeof window !== 'undefined' ? localStorage.getItem(AUTH_STORAGE_KEY) : null;
       if (stored) {
         const parsed: AuthSession = JSON.parse(stored);
-        if (parsed?.user) {
-          setUser(parsed.user);
-          setSession(parsed);
-          setIsLoading(false);
-          return;
+        if (parsed?.token) {
+          // Cryptographic verification with Supabase Auth API
+          const { data, error } = await supabase.auth.getUser(parsed.token);
+          if (data?.user && !error) {
+            const verifiedUser: User = {
+              id: data.user.id,
+              email: data.user.email || parsed.user?.email || '',
+              fullName: data.user.user_metadata?.full_name || parsed.user?.fullName || data.user.email?.split('@')[0] || 'User',
+              createdAt: data.user.created_at || parsed.user?.createdAt || new Date().toISOString(),
+            };
+            setUser(verifiedUser);
+            setSession({
+              ...parsed,
+              user: verifiedUser,
+            });
+            setAuthCookie(parsed.token);
+            setIsLoading(false);
+            return;
+          }
         }
       }
-      
-      const demoSession: AuthSession = {
-        user: DEMO_USER,
-        token: `demo_token_${DEMO_USER.id}`,
-        expiresAt: Date.now() + 86400000 * 30,
-      };
-      setUser(DEMO_USER);
-      setSession(demoSession);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(demoSession));
-    } catch {
-      setUser(DEMO_USER);
-    } finally {
-      setIsLoading(false);
+    } catch (err) {
+      console.warn('Session verification exception:', err);
     }
-  }, [isDemoMode]);
+
+    // No valid verified session found
+    setUser(null);
+    setSession(null);
+    clearAuthCookie();
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
+    setIsLoading(false);
+  }, [isConfigured]);
 
   useEffect(() => {
     verifyAndRestoreSession();
+
+    // Multi-tab session synchronization listener
+    const handleStorageChange = (e: StorageEvent) => {
+      if (e.key === AUTH_STORAGE_KEY) {
+        verifyAndRestoreSession();
+      }
+    };
+
+    if (typeof window !== 'undefined') {
+      window.addEventListener('storage', handleStorageChange);
+      return () => window.removeEventListener('storage', handleStorageChange);
+    }
   }, [verifyAndRestoreSession]);
 
   const login = async (email: string, password?: string): Promise<{ success: boolean; error?: string }> => {
     setIsLoading(true);
 
-    if (isSupabaseConfigured()) {
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        setIsLoading(false);
-        return { success: false, error: 'Supabase client unavailable' };
-      }
+    if (!isConfigured) {
+      setIsLoading(false);
+      return { success: false, error: 'Supabase authentication service is not configured.' };
+    }
 
-      const { data, error } = await supabase.auth.signInWithPassword({ email, password });
-      if (error || !data?.session) {
-        setIsLoading(false);
-        return { success: false, error: error?.message || 'Invalid email or password' };
-      }
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setIsLoading(false);
+      return { success: false, error: 'Supabase client unavailable' };
+    }
 
-      const authUser: User = {
-        id: data.user.id,
-        email: data.user.email || email,
-        fullName: data.user.user_metadata?.full_name || email.split('@')[0],
-        createdAt: data.user.created_at || new Date().toISOString(),
-      };
+    const { data, error } = await supabase.auth.signInWithPassword({ email, password });
+    if (error || !data?.session || !data.user) {
+      setIsLoading(false);
+      return { success: false, error: error?.message || 'Invalid email or password' };
+    }
 
+    const authUser: User = {
+      id: data.user.id,
+      email: data.user.email || email,
+      fullName: data.user.user_metadata?.full_name || email.split('@')[0],
+      createdAt: data.user.created_at || new Date().toISOString(),
+    };
+
+    const authSession: AuthSession = {
+      user: authUser,
+      token: data.session.access_token,
+      expiresAt: data.session.expires_at || Date.now() + 86400000,
+    };
+
+    setUser(authUser);
+    setSession(authSession);
+    setAuthCookie(authSession.token);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
+    }
+    setIsLoading(false);
+    return { success: true };
+  };
+
+  const signUp = async (data: {
+    email: string;
+    password?: string;
+    fullName: string;
+  }): Promise<{ success: boolean; error?: string; message?: string }> => {
+    setIsLoading(true);
+
+    if (!isConfigured) {
+      setIsLoading(false);
+      return { success: false, error: 'Supabase authentication service is not configured.' };
+    }
+
+    const supabase = getSupabaseClient();
+    if (!supabase) {
+      setIsLoading(false);
+      return { success: false, error: 'Supabase client unavailable' };
+    }
+
+    const { data: authData, error } = await supabase.auth.signUp({
+      email: data.email,
+      password: data.password,
+      options: { data: { full_name: data.fullName } },
+    });
+
+    if (error || !authData?.user) {
+      setIsLoading(false);
+      return { success: false, error: error?.message || 'Failed to register account' };
+    }
+
+    const authUser: User = {
+      id: authData.user.id,
+      email: authData.user.email || data.email,
+      fullName: data.fullName,
+      createdAt: authData.user.created_at || new Date().toISOString(),
+    };
+
+    // If session is returned immediately (email confirmation turned off in Supabase)
+    if (authData.session) {
       const authSession: AuthSession = {
         user: authUser,
-        token: data.session.access_token,
-        expiresAt: data.session.expires_at || Date.now() + 86400000,
+        token: authData.session.access_token,
+        expiresAt: authData.session.expires_at || Date.now() + 86400000,
       };
-
       setUser(authUser);
       setSession(authSession);
       setAuthCookie(authSession.token);
-      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
-      setIsLoading(false);
-      return { success: true };
-    }
-
-    // Demo Mode Sign In
-    const id = `usr_${email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const authUser: User = {
-      id,
-      email,
-      fullName: email.split('@')[0].replace('.', ' '),
-      createdAt: new Date().toISOString(),
-    };
-    const authSession: AuthSession = {
-      user: authUser,
-      token: `demo_session_${id}_${Date.now()}`,
-      expiresAt: Date.now() + 86400000 * 30,
-    };
-
-    setUser(authUser);
-    setSession(authSession);
-    setAuthCookie(authSession.token);
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
-    setIsLoading(false);
-    return { success: true };
-  };
-
-  const signUp = async (data: { email: string; password?: string; fullName: string }): Promise<{ success: boolean; error?: string }> => {
-    setIsLoading(true);
-
-    if (isSupabaseConfigured()) {
-      const supabase = getSupabaseClient();
-      if (!supabase) {
-        setIsLoading(false);
-        return { success: false, error: 'Supabase client unavailable' };
-      }
-
-      const { data: authData, error } = await supabase.auth.signUp({
-        email: data.email,
-        password: data.password,
-        options: { data: { full_name: data.fullName } },
-      });
-
-      if (error || !authData?.user) {
-        setIsLoading(false);
-        return { success: false, error: error?.message || 'Failed to register account' };
-      }
-
-      const authUser: User = {
-        id: authData.user.id,
-        email: authData.user.email || data.email,
-        fullName: data.fullName,
-        createdAt: authData.user.created_at || new Date().toISOString(),
-      };
-
-      if (authData.session) {
-        const authSession: AuthSession = {
-          user: authUser,
-          token: authData.session.access_token,
-          expiresAt: authData.session.expires_at || Date.now() + 86400000,
-        };
-        setUser(authUser);
-        setSession(authSession);
-        setAuthCookie(authSession.token);
+      if (typeof window !== 'undefined') {
         localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
       }
-
       setIsLoading(false);
       return { success: true };
     }
 
-    // Demo Mode Sign Up
-    const id = `usr_${data.email.replace(/[^a-zA-Z0-9]/g, '_')}`;
-    const authUser: User = {
-      id,
-      email: data.email,
-      fullName: data.fullName,
-      createdAt: new Date().toISOString(),
-    };
-    const authSession: AuthSession = {
-      user: authUser,
-      token: `demo_session_${id}_${Date.now()}`,
-      expiresAt: Date.now() + 86400000 * 30,
-    };
-
-    setUser(authUser);
-    setSession(authSession);
-    setAuthCookie(authSession.token);
-    localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
+    // Email confirmation required by Supabase project
     setIsLoading(false);
-    return { success: true };
+    return {
+      success: true,
+      message: 'Account created! Please check your email to confirm your account or sign in.',
+    };
   };
 
   const logout = async (): Promise<void> => {
-    if (isSupabaseConfigured()) {
+    if (isConfigured) {
       const supabase = getSupabaseClient();
       if (supabase && session?.token) {
-        await supabase.auth.signOut(session.token);
+        try {
+          await supabase.auth.signOut(session.token);
+        } catch (e) {
+          console.warn('SignOut error ignored:', e);
+        }
       }
     }
     setUser(null);
     setSession(null);
     clearAuthCookie();
-    localStorage.removeItem(AUTH_STORAGE_KEY);
+    if (typeof window !== 'undefined') {
+      localStorage.removeItem(AUTH_STORAGE_KEY);
+    }
   };
 
   const resetPassword = async (email: string): Promise<{ success: boolean; error?: string }> => {
-    if (isSupabaseConfigured()) {
-      const supabase = getSupabaseClient();
-      if (!supabase) return { success: false, error: 'Supabase client unavailable' };
-      const { error } = await supabase.auth.resetPasswordForEmail(email);
-      if (error) return { success: false, error: error.message };
-      return { success: true };
+    if (!isConfigured) {
+      return { success: false, error: 'Authentication service not configured' };
     }
+    const supabase = getSupabaseClient();
+    if (!supabase) return { success: false, error: 'Supabase client unavailable' };
+    const { error } = await supabase.auth.resetPasswordForEmail(email);
+    if (error) return { success: false, error: error.message };
     return { success: true };
   };
 
-  const resendConfirmationEmail = async (email: string): Promise<{ success: boolean; message?: string; error?: string }> => {
-    if (isSupabaseConfigured()) {
-      const supabase = getSupabaseClient();
-      if (!supabase) return { success: false, error: 'Supabase client unavailable' };
-      const { data, error } = await supabase.auth.resend({ type: 'signup', email });
-      if (error) return { success: false, error: error.message };
-      return { success: true, message: 'Confirmation email sent! Please check your inbox.' };
+  const resendConfirmationEmail = async (
+    email: string
+  ): Promise<{ success: boolean; message?: string; error?: string }> => {
+    if (!isConfigured) {
+      return { success: false, error: 'Authentication service not configured' };
     }
-    return { success: true, message: 'In demo mode, email confirmation is simulated as verified.' };
+    const supabase = getSupabaseClient();
+    if (!supabase) return { success: false, error: 'Supabase client unavailable' };
+    const { error } = await supabase.auth.resend({ type: 'signup', email });
+    if (error) return { success: false, error: error.message };
+    return { success: true, message: 'Confirmation email sent! Please check your inbox.' };
   };
 
   const refreshSession = async (): Promise<void> => {
@@ -295,7 +281,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         session,
         isAuthenticated: !!user,
         isLoading,
-        isDemoMode,
+        isConfigured,
         login,
         signUp,
         logout,

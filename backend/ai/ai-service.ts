@@ -853,7 +853,89 @@ ${text.slice(0, 4000)}`;
       };
     }
 
-    // Dynamic word & sentence translator over user's actual text
+    // Universal Neural Translation Engine (Google Free Neural REST + MyMemory fallback)
+    try {
+      const cleanLines = text.split('\n');
+      const translatedChunks: string[] = [];
+
+      for (const line of cleanLines.slice(0, 35)) {
+        if (!line.trim()) {
+          translatedChunks.push('');
+          continue;
+        }
+
+        // Keep Markdown heading prefixes
+        const headingMatch = line.match(/^(#+)\s*(.*)$/);
+        const prefix = headingMatch ? `${headingMatch[1]} ` : '';
+        const lineText = headingMatch ? headingMatch[2] : line;
+
+        let translatedLine = '';
+
+        // 1. Try Google Translate Neural API
+        try {
+          const gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLanguage}&dt=t&q=${encodeURIComponent(lineText)}`;
+          const gRes = await fetch(gUrl);
+          if (gRes.ok) {
+            const gData = await gRes.json();
+            if (gData && Array.isArray(gData[0])) {
+              const fullTrans = gData[0].map((segment: any) => segment[0]).filter(Boolean).join('');
+              if (fullTrans && fullTrans.trim().length > 0) {
+                translatedLine = fullTrans;
+              }
+            }
+          }
+        } catch (gErr) {
+          // Proceed to next fallback
+        }
+
+        // 2. Try MyMemory Neural API if Google failed
+        if (!translatedLine) {
+          try {
+            const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(lineText.slice(0, 450))}&langpair=en|${targetLanguage}`;
+            const mmRes = await fetch(mmUrl);
+            if (mmRes.ok) {
+              const mmData = await mmRes.json();
+              if (mmData.responseData?.translatedText && !mmData.responseData.translatedText.includes('MYMEMORY WARNING')) {
+                translatedLine = mmData.responseData.translatedText;
+              }
+            }
+          } catch (mmErr) {
+            // Proceed to dictionary
+          }
+        }
+
+        // 3. High-quality dictionary fallback if online translation fails
+        if (!translatedLine) {
+          translatedLine = lineText;
+          const dictionary = targetLanguage === 'hi' ? HINDI_DICTIONARY : TELUGU_DICTIONARY;
+          for (const [enTerm, transTerm] of Object.entries(dictionary)) {
+            const regex = new RegExp(`\\b${enTerm}\\b`, 'gi');
+            translatedLine = translatedLine.replace(regex, transTerm);
+          }
+        }
+
+        translatedChunks.push(`${prefix}${translatedLine}`);
+      }
+
+      if (translatedChunks.length > 0) {
+        const fullTranslatedMarkdown = translatedChunks.join('\n');
+        const defaultTitle = targetLanguage === 'te' 
+          ? 'తెలుగు అందుబాటులో ఉన్న పత్రం (Telugu Accessible Document)'
+          : targetLanguage === 'hi'
+          ? 'हिंदी सुलभ संस्करण (Hindi Accessible Document)'
+          : `${targetLangName} Accessible Document`;
+
+        return {
+          title: defaultTitle,
+          content: fullTranslatedMarkdown,
+          languageName: targetLangName,
+        };
+      }
+    } catch (neuralErr) {
+      console.warn('Neural translation fallback error:', neuralErr);
+    }
+
+    // Static dictionary fallback
     const lines = text.split('\n');
     const dictionary = targetLanguage === 'hi' ? HINDI_DICTIONARY : TELUGU_DICTIONARY;
 

@@ -34,8 +34,9 @@ export const UniversalToolbar: React.FC = () => {
         <div
           role="dialog"
           aria-label="Accessibility Settings Panel"
-          className="mb-3 w-80 sm:w-96 rounded-3xl border-3 border-[var(--border-strong)] bg-white p-6 shadow-[8px_8px_0_0_#192138] transition-all duration-200"
+          className="mb-3 w-[calc(100vw-32px)] max-w-sm rounded-3xl border-3 border-[var(--border-strong)] bg-white p-5 sm:p-6 shadow-[8px_8px_0_0_#192138] transition-all duration-200"
         >
+
           <div className="flex items-center justify-between pb-3 border-b-2 border-[var(--border-strong)]">
             <div className="flex items-center gap-2 font-black text-sm text-[var(--text-primary)]">
               <Accessibility className="h-5 w-5 text-[#059669]" aria-hidden="true" />

@@ -4,16 +4,22 @@ import { User } from './auth-types';
 
 /**
  * Server-side cryptographic authentication and session extraction.
- * Validates bearer tokens and session cookies strictly server-side.
+ * Validates bearer tokens and session cookies strictly server-side using Supabase Auth.
+ * Returns null for any unauthenticated, expired, or invalid session.
  */
 export async function getAuthenticatedUser(req: NextRequest): Promise<User | null> {
   const authHeader = req.headers.get('Authorization') || req.headers.get('authorization');
   const authCookie = req.cookies.get('inclusa_auth_token')?.value;
 
-  const token = authHeader?.replace(/^Bearer\s+/i, '').trim() || authCookie || '';
+  const rawToken = authHeader?.replace(/^Bearer\s+/i, '').trim() || authCookie || '';
+  const token = rawToken ? decodeURIComponent(rawToken) : '';
 
-  // 1. Production Mode: Cryptographic Supabase Token Verification
-  if (isSupabaseConfigured() && token && !token.startsWith('demo_')) {
+  if (!token) {
+    return null;
+  }
+
+  // Cryptographic Supabase Token Verification
+  if (isSupabaseConfigured()) {
     const supabase = getSupabaseAdminClient() || getSupabaseClient();
     if (supabase) {
       try {
@@ -27,16 +33,11 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<User | nul
           };
         }
       } catch (err) {
-        console.warn('Supabase token verification error, falling back to local session', err);
+        console.warn('Supabase server token verification error:', err);
       }
     }
   }
 
-  // 2. Demo / Development Mode Token Verification & Default User
-  return {
-    id: 'usr_demo_developer',
-    email: 'demo@inclusa.ai',
-    fullName: 'INCLUSA Demo User',
-    createdAt: '2026-01-01T00:00:00Z',
-  };
+  return null;
 }
+

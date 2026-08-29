@@ -5,7 +5,11 @@ import { aiService } from '@/lib/ai/ai-service';
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(req);
+    if (!authUser) {
+      return NextResponse.json({ error: 'Unauthorized: Authentication required.' }, { status: 401 });
+    }
     const body = await req.json();
+
     const { fileDataUrl, fileName, inputType, mimeType, title, url, rawText } = body;
 
     if (!fileDataUrl && !rawText && !url) {

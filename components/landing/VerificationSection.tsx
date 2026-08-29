@@ -24,8 +24,9 @@ export const VerificationSection: React.FC = () => {
             INDEPENDENT VERIFICATION ENGINE
           </span>
           <h2 className="text-3xl sm:text-4xl lg:text-5xl font-black text-[var(--text-primary)] tracking-tight">
-            We Don't Just Fix It. <span className="text-[#059669]">We Check.</span>
+            We Don&apos;t Just Fix It. <span className="text-[#059669]">We Check.</span>
           </h2>
+
           <p className="text-sm sm:text-base text-[var(--text-secondary)] font-medium mt-4 leading-relaxed">
             Most AI tools guess when generating text. INCLUSA includes a dedicated Verification Agent (Agent 5) that independently re-audits every generated transformation against WCAG criteria.
           </p>

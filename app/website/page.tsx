@@ -1,6 +1,7 @@
 'use client';
 
-import React, { useState } from 'react';
+import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import {
   Globe,
   Sparkles,
@@ -11,8 +12,11 @@ import { IssueExplorer } from '@/components/analysis/IssueExplorer';
 import { calculateInitialScore } from '@/lib/scoring/accessibility-scorer';
 import { AccessibilityIssue, AccessibilityScoreResult } from '@/types';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
+import { useAuth } from '@/context/AuthContext';
 
 export default function WebsiteAnalyzerPage() {
+  const router = useRouter();
+  const { user, isLoading, getToken } = useAuth();
   const [urlInput, setUrlInput] = useState('');
   const [isAuditing, setIsAuditing] = useState(false);
   const [auditResult, setAuditResult] = useState<{
@@ -28,6 +32,13 @@ export default function WebsiteAnalyzerPage() {
     };
   } | null>(null);
 
+  useEffect(() => {
+    if (!isLoading && !user) {
+      router.push('/login?redirect=/website');
+    }
+  }, [user, isLoading, router]);
+
+
   const handleAudit = async (e: React.FormEvent) => {
     e.preventDefault();
     if (!urlInput.trim() || isAuditing) return;
@@ -36,11 +47,16 @@ export default function WebsiteAnalyzerPage() {
     setAuditResult(null);
 
     try {
+      const token = getToken();
       const res = await fetch('/api/website-audit', {
         method: 'POST',
-        headers: { 'Content-Type': 'application/json' },
+        headers: {
+          'Content-Type': 'application/json',
+          ...(token ? { Authorization: `Bearer ${token}` } : {}),
+        },
         body: JSON.stringify({ url: urlInput }),
       });
+
 
       if (!res.ok) {
         throw new Error(`Audit request failed with status ${res.status}`);

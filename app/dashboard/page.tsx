@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { documentStore } from '@/lib/storage/document-store';
 import { DashboardStats, DocumentAnalysis } from '@/types';
 import { MetricsGrid } from '@/components/dashboard/MetricsGrid';
@@ -9,11 +10,11 @@ import { RecentDocumentsTable } from '@/components/dashboard/RecentDocumentsTabl
 import { QuickUploadCard } from '@/components/dashboard/QuickUploadCard';
 import { PlusCircle, Sparkles, RefreshCw } from 'lucide-react';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
-
 import { useAuth } from '@/context/AuthContext';
 
 export default function DashboardPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [analyses, setAnalyses] = useState<DocumentAnalysis[]>([]);
   const [stats, setStats] = useState<DashboardStats>({
     totalAnalyses: 0,
@@ -25,21 +26,43 @@ export default function DashboardPage() {
   });
 
   const loadData = () => {
-    const all = documentStore.getAllAnalyses(user?.id);
+    if (!user) return;
+    const all = documentStore.getAllAnalyses(user.id);
     setAnalyses(all);
-    setStats(documentStore.getDashboardStats(user?.id));
+    setStats(documentStore.getDashboardStats(user.id));
   };
 
   useEffect(() => {
-    loadData();
+    if (!isLoading && !user) {
+      router.push('/login?redirect=/dashboard');
+    }
+  }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
   }, [user?.id]);
 
   const handleDelete = (id: string) => {
+    if (!user) return;
     if (window.confirm('Are you sure you want to delete this analysis record?')) {
-      documentStore.deleteAnalysis(id, user?.id);
+      documentStore.deleteAnalysis(id, user.id);
       loadData();
     }
   };
+
+  if (isLoading) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-20 text-center text-xs font-bold text-[var(--text-muted)]">
+        Loading workspace dashboard...
+      </div>
+    );
+  }
+
+  if (!user) {
+    return null;
+  }
 
   return (
     <div className="mx-auto max-w-[1700px] px-4 sm:px-8 lg:px-12 py-8 w-full flex-1">
@@ -57,7 +80,7 @@ export default function DashboardPage() {
               </span>
             </div>
             <p className="text-xs sm:text-sm text-[var(--text-secondary)] font-medium mt-0.5">
-              Centralized document history, reports and accessibility insights.
+              Logged in as <strong className="text-[var(--text-primary)]">{user.fullName || user.email}</strong>. Centralized document history, reports, and accessibility insights.
             </p>
           </div>
         </div>

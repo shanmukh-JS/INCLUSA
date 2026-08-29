@@ -23,7 +23,7 @@ import { InclusaMascot } from '@/components/ui/InclusaMascot';
 import { useAuth } from '@/context/AuthContext';
 
 export default function AuditDetailPage() {
-  const { user } = useAuth();
+  const { user, isLoading } = useAuth();
   const params = useParams();
   const router = useRouter();
   const documentId = params.id as string;
@@ -33,13 +33,23 @@ export default function AuditDetailPage() {
   const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const doc = documentStore.getAnalysisById(documentId, user?.id);
-    if (doc) {
-      setAnalysis(doc);
-    } else {
-      setNotFound(true);
+    if (!isLoading && !user) {
+      router.push(`/login?redirect=/audit/${documentId}`);
     }
-  }, [documentId, user?.id]);
+  }, [user, isLoading, documentId, router]);
+
+  useEffect(() => {
+    if (user) {
+      const doc = documentStore.getAnalysisById(documentId, user.id);
+      if (doc) {
+        setAnalysis(doc);
+        setNotFound(false);
+      } else {
+        setNotFound(true);
+      }
+    }
+  }, [documentId, user]);
+
 
   const handleExecuteTransformations = async (selectedItems: TransformationItem[]) => {
     if (!analysis) return;

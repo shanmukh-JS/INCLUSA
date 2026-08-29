@@ -2,6 +2,7 @@
 
 import React, { useState, useEffect } from 'react';
 import Link from 'next/link';
+import { useRouter } from 'next/navigation';
 import { documentStore } from '@/lib/storage/document-store';
 import { DocumentAnalysis, DocumentInputType } from '@/types';
 import {
@@ -20,25 +21,37 @@ import { InclusaMascot } from '@/components/ui/InclusaMascot';
 import { useAuth } from '@/context/AuthContext';
 
 export default function HistoryPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [analyses, setAnalyses] = useState<DocumentAnalysis[]>([]);
   const [searchQuery, setSearchQuery] = useState('');
   const [typeFilter, setTypeFilter] = useState<string>('all');
 
   const loadData = () => {
-    setAnalyses(documentStore.getAllAnalyses(user?.id));
+    if (!user) return;
+    setAnalyses(documentStore.getAllAnalyses(user.id));
   };
 
   useEffect(() => {
-    loadData();
+    if (!isLoading && !user) {
+      router.push('/login?redirect=/history');
+    }
+  }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (user) {
+      loadData();
+    }
   }, [user?.id]);
 
   const handleDelete = (id: string) => {
+    if (!user) return;
     if (window.confirm('Delete this historical analysis record?')) {
-      documentStore.deleteAnalysis(id, user?.id);
+      documentStore.deleteAnalysis(id, user.id);
       loadData();
     }
   };
+
 
   const getIcon = (type: DocumentInputType) => {
     switch (type) {

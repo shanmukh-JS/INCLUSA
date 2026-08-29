@@ -36,8 +36,9 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
   if (!out) {
     return (
       <div className="p-8 rounded-3xl border-2 border-[var(--border-strong)] bg-white text-center text-xs text-[var(--text-muted)] font-medium">
-        Transformations have not yet been generated for this document. Click "Transform Content" in the audit report.
+        Transformations have not yet been generated for this document. Click &ldquo;Transform Content&rdquo; in the audit report.
       </div>
+
     );
   }
 
@@ -236,8 +237,9 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
                       Alt Text (Concise):
                     </span>
                     <p className="text-xs text-[var(--text-primary)] bg-white p-3 rounded-xl border border-[var(--border-strong)] font-mono font-bold">
-                      "{img.altText}"
+                      &ldquo;{img.altText}&rdquo;
                     </p>
+
                   </div>
 
                   <div>

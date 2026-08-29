@@ -3,7 +3,7 @@ import {
   AccessibilityProfile,
   TransformationItem,
   VerificationResult,
-} from '@/types';
+} from '../../types';
 
 /**
  * Agent 6 — Explanation Agent

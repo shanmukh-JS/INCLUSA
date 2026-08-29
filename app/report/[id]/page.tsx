@@ -1,7 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
-import { useParams } from 'next/navigation';
+import { useParams, useRouter } from 'next/navigation';
 import Link from 'next/link';
 import { documentStore } from '@/lib/storage/document-store';
 import { DocumentAnalysis } from '@/types';
@@ -10,22 +10,61 @@ import {
   ChevronLeft,
   ShieldCheck,
   CheckCircle2,
+  AlertCircle,
+  ArrowRight,
 } from 'lucide-react';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
 
 import { useAuth } from '@/context/AuthContext';
 
 export default function ExecutiveReportPage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const params = useParams();
   const documentId = params.id as string;
 
   const [analysis, setAnalysis] = useState<DocumentAnalysis | null>(null);
+  const [notFound, setNotFound] = useState(false);
 
   useEffect(() => {
-    const doc = documentStore.getAnalysisById(documentId, user?.id);
-    if (doc) setAnalysis(doc);
-  }, [documentId, user?.id]);
+    if (!isLoading && !user) {
+      router.push(`/login?redirect=/report/${documentId}`);
+    }
+  }, [user, isLoading, documentId, router]);
+
+  useEffect(() => {
+    if (user) {
+      const doc = documentStore.getAnalysisById(documentId, user.id);
+      if (doc) {
+        setAnalysis(doc);
+        setNotFound(false);
+      } else {
+        setNotFound(true);
+      }
+    }
+  }, [documentId, user]);
+
+  if (notFound) {
+    return (
+      <div className="mx-auto max-w-4xl px-4 py-16 text-center">
+        <div className="flex justify-center mb-3">
+          <InclusaMascot pose="reading" size={70} />
+        </div>
+        <h2 className="text-xl font-black text-[var(--text-primary)]">Report Not Found</h2>
+        <p className="text-xs text-[var(--text-secondary)] font-medium mt-1 mb-6">
+          The requested report could not be found or you do not have permission to view it.
+        </p>
+        <Link
+          href="/dashboard"
+          className="inline-flex items-center gap-2 px-6 py-3 rounded-2xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138]"
+        >
+          <span>Return to Workspace</span>
+          <ArrowRight className="h-4 w-4" />
+        </Link>
+      </div>
+    );
+  }
+
 
   if (!analysis) {
     return (

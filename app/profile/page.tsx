@@ -1,6 +1,7 @@
 'use client';
 
 import React, { useState, useEffect } from 'react';
+import { useRouter } from 'next/navigation';
 import { documentStore, DEFAULT_ACCESSIBILITY_PROFILE } from '@/lib/storage/document-store';
 import { AccessibilityProfile } from '@/types';
 import {
@@ -20,26 +21,38 @@ import { InclusaMascot } from '@/components/ui/InclusaMascot';
 import { useAuth } from '@/context/AuthContext';
 
 export default function ProfilePage() {
-  const { user } = useAuth();
+  const router = useRouter();
+  const { user, isLoading } = useAuth();
   const [profile, setProfile] = useState<AccessibilityProfile>(DEFAULT_ACCESSIBILITY_PROFILE);
   const [savedSuccess, setSavedSuccess] = useState(false);
 
   useEffect(() => {
-    setProfile(documentStore.getActiveProfile(user?.id));
+    if (!isLoading && !user) {
+      router.push('/login?redirect=/profile');
+    }
+  }, [user, isLoading, router]);
+
+  useEffect(() => {
+    if (user?.id) {
+      setProfile(documentStore.getActiveProfile(user.id));
+    }
   }, [user?.id]);
 
   const handleSave = (e: React.FormEvent) => {
     e.preventDefault();
-    documentStore.saveProfile(profile, user?.id);
-    documentStore.setActiveProfileId(profile.id, user?.id);
+    if (!user) return;
+    documentStore.saveProfile(profile, user.id);
+    documentStore.setActiveProfileId(profile.id, user.id);
     setSavedSuccess(true);
     setTimeout(() => setSavedSuccess(false), 2500);
   };
 
   const handleReset = () => {
+    if (!user) return;
     setProfile(DEFAULT_ACCESSIBILITY_PROFILE);
-    documentStore.saveProfile(DEFAULT_ACCESSIBILITY_PROFILE, user?.id);
+    documentStore.saveProfile(DEFAULT_ACCESSIBILITY_PROFILE, user.id);
   };
+
 
   // Derive dynamic personalized recommendations
   const getRecommendations = () => {

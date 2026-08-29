@@ -3,7 +3,7 @@ import {
   AgentPipelineResult,
   AgentStep,
   TransformationItem,
-} from '@/types';
+} from '../../types';
 import { contentUnderstandingAgent, IngestionInput } from './content-understanding';
 import { accessibilityAuditAgent } from './accessibility-audit';
 import { userNeedsAgent } from './user-needs';

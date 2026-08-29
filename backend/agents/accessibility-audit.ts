@@ -1,4 +1,4 @@
-import { AccessibilityIssue, StructuredContent } from '@/types';
+import { AccessibilityIssue, StructuredContent } from '../../types';
 import { WCAG_ACCESSIBILITY_RULES } from '../rules/wcag-rules';
 
 /**
