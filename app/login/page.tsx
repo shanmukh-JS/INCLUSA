@@ -23,10 +23,16 @@ function LoginForm() {
   const router = useRouter();
   const searchParams = useSearchParams();
   const rawRedirect = searchParams.get('redirect') || '/dashboard';
-  // Safe redirect validation to prevent open-redirect vulnerabilities
-  const redirectUrl = rawRedirect.startsWith('/') && !rawRedirect.startsWith('//') ? rawRedirect : '/dashboard';
+  // Safe redirect validation: must start with / and not loop back to /login or /signup
+  const redirectUrl =
+    rawRedirect.startsWith('/') &&
+    !rawRedirect.startsWith('//') &&
+    rawRedirect !== '/login' &&
+    rawRedirect !== '/signup'
+      ? rawRedirect
+      : '/dashboard';
 
-  const { user, isLoading, login, logout, resendConfirmationEmail } = useAuth();
+  const { user, session, isLoading, login, logout, resendConfirmationEmail } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -36,15 +42,22 @@ function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
 
+  const handleContinue = () => {
+    if (session?.token) {
+      document.cookie = `inclusa_auth_token=${encodeURIComponent(session.token)}; path=/; max-age=604800; SameSite=Lax`;
+    }
+    window.location.href = redirectUrl;
+  };
+
   // Automatic redirect if already authenticated
   useEffect(() => {
     if (user && !isLoading) {
       const timer = setTimeout(() => {
-        router.replace(redirectUrl);
+        handleContinue();
       }, 700);
       return () => clearTimeout(timer);
     }
-  }, [user, isLoading, redirectUrl, router]);
+  }, [user, isLoading, redirectUrl]);
 
   // If already logged in, show clear authenticated state with instant redirect action
   if (!isLoading && user) {
@@ -67,14 +80,15 @@ function LoginForm() {
         </div>
 
         <div className="space-y-3 pt-2">
-          <Link
-            href={redirectUrl}
-            className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-black text-xs border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+          <button
+            type="button"
+            onClick={handleContinue}
+            className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-black text-xs border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 cursor-pointer"
           >
             <Layers className="h-4 w-4" />
             <span>Continue to Workspace</span>
             <ArrowRight className="h-4 w-4" />
-          </Link>
+          </button>
 
           <button
             type="button"

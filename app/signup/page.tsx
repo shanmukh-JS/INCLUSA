@@ -19,7 +19,7 @@ import {
 
 export default function SignupPage() {
   const router = useRouter();
-  const { user, isLoading, signUp, logout } = useAuth();
+  const { user, session, isLoading, signUp, logout } = useAuth();
 
   const [fullName, setFullName] = useState('');
   const [email, setEmail] = useState('');
@@ -29,15 +29,22 @@ export default function SignupPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
+  const handleContinue = () => {
+    if (session?.token) {
+      document.cookie = `inclusa_auth_token=${encodeURIComponent(session.token)}; path=/; max-age=604800; SameSite=Lax`;
+    }
+    window.location.href = '/dashboard';
+  };
+
   // Auto-redirect if already logged in
   useEffect(() => {
     if (user && !isLoading) {
       const timer = setTimeout(() => {
-        router.replace('/dashboard');
+        handleContinue();
       }, 700);
       return () => clearTimeout(timer);
     }
-  }, [user, isLoading, router]);
+  }, [user, isLoading]);
 
   // If already logged in, show clear authenticated state with instant redirect action
   if (!isLoading && user) {
@@ -61,14 +68,15 @@ export default function SignupPage() {
           </div>
 
           <div className="space-y-3 pt-2">
-            <Link
-              href="/dashboard"
-              className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-black text-xs border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2"
+            <button
+              type="button"
+              onClick={handleContinue}
+              className="w-full py-3.5 px-4 rounded-xl bg-[#059669] hover:bg-[#047857] text-white font-black text-xs border-2 border-[var(--border-strong)] shadow-[3px_3px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 cursor-pointer"
             >
               <Layers className="h-4 w-4" />
               <span>Continue to Workspace</span>
               <ArrowRight className="h-4 w-4" />
-            </Link>
+            </button>
 
             <button
               type="button"
