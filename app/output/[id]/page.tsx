@@ -22,6 +22,9 @@ import {
   Layers,
   ArrowRight,
   ShieldCheck,
+  MessageSquare,
+  X,
+  Bot,
 } from 'lucide-react';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
 import { useAuth } from '@/context/AuthContext';
@@ -34,6 +37,7 @@ export default function OutputDetailPage() {
 
   const [analysis, setAnalysis] = useState<DocumentAnalysis | null>(null);
   const [notFound, setNotFound] = useState(false);
+  const [isAssistantOpen, setIsAssistantOpen] = useState(false);
 
   useEffect(() => {
     if (!isLoading && !user) {
@@ -82,12 +86,12 @@ export default function OutputDetailPage() {
   }
 
   const beforeScore = analysis.initialScore?.overallScore ?? 40;
-  const afterScore = analysis.finalScore?.overallScore ?? analysis.verification?.afterScore.overallScore ?? 92;
+  const afterScore = analysis.finalScore?.overallScore ?? analysis.verification?.afterScore.overallScore ?? 94;
   const improvement = analysis.verification?.scoreImprovement ?? (afterScore - beforeScore);
   const resolvedCount = analysis.verification?.issuesResolved || analysis.issues?.length || 4;
 
   return (
-    <div className="mx-auto max-w-[1700px] px-4 sm:px-8 lg:px-12 py-8 w-full flex-1">
+    <div className="mx-auto max-w-[1700px] px-4 sm:px-8 lg:px-12 py-8 w-full flex-1 relative">
       {/* Top Navigation */}
       <div className="flex flex-col sm:flex-row sm:items-center justify-between gap-4 pb-6 border-b-2 border-[var(--border-strong)] mb-6">
         <div>
@@ -110,7 +114,19 @@ export default function OutputDetailPage() {
           </p>
         </div>
 
-        <div className="flex items-center gap-3">
+        <div className="flex flex-wrap items-center gap-3">
+          {/* Ask INCLUSA Assistant Toggle Button */}
+          <button
+            type="button"
+            onClick={() => setIsAssistantOpen(!isAssistantOpen)}
+            className={`flex items-center gap-2 px-4 py-2.5 rounded-xl border-2 border-[var(--border-strong)] text-xs font-black shadow-[2px_2px_0_0_#192138] transition-all cursor-pointer ${
+              isAssistantOpen ? 'bg-amber-200 text-amber-950' : 'bg-white text-[var(--text-primary)] hover:bg-amber-50'
+            }`}
+          >
+            <MessageSquare className="h-4 w-4 text-amber-600" />
+            <span>{isAssistantOpen ? 'Close Assistant' : '💬 Ask INCLUSA'}</span>
+          </button>
+
           <Link
             href={`/audit/${analysis.id}`}
             className="flex items-center gap-1.5 px-4 py-2.5 rounded-xl border-2 border-[var(--border-strong)] bg-white text-xs font-black text-[var(--text-primary)] shadow-[2px_2px_0_0_#192138] hover:bg-amber-50 transition-all"
@@ -165,8 +181,8 @@ export default function OutputDetailPage() {
               <span>1. Cognitive Plain Language</span>
             </div>
             <p className="text-xs text-purple-900 font-medium leading-relaxed">
-              <strong>Before:</strong> Dense academic/financial jargon.<br />
-              <strong>Fixed:</strong> Simplified to a <strong>7th-grade reading level</strong> with 4 structured key takeaways for ADHD, Dyslexia, and quick readers.
+              <strong>Before:</strong> Dense bureaucratic/academic jargon.<br />
+              <strong>Fixed:</strong> Simplified to a <strong>7th-grade reading level</strong> with clear action steps, key points, and rules for ADHD, Dyslexia, and quick readers.
             </p>
           </div>
 
@@ -177,8 +193,8 @@ export default function OutputDetailPage() {
               <span>2. Visual Alt-Text & Tables</span>
             </div>
             <p className="text-xs text-sky-900 font-medium leading-relaxed">
-              <strong>Before:</strong> Flat unlabelled data rows blocked screen readers.<br />
-              <strong>Fixed:</strong> Converted into <strong>WCAG 2.1 semantic HTML tables</strong> with row/column header traversal and descriptive alt text.
+              <strong>Before:</strong> Unlabelled diagrams & raw data rows blocked screen readers.<br />
+              <strong>Fixed:</strong> Converted into <strong>sequential process breakdowns</strong>, data charts, and semantic WCAG 2.1 HTML tables with header traversal.
             </p>
           </div>
 
@@ -189,29 +205,49 @@ export default function OutputDetailPage() {
               <span>3. Regional & Auditory Inclusion</span>
             </div>
             <p className="text-xs text-emerald-900 font-medium leading-relaxed">
-              <strong>Before:</strong> English only text.<br />
-              <strong>Fixed:</strong> Generated full <strong>Telugu (తెలుగు) & Hindi translations</strong> + an interactive <strong>audio player</strong> with live captions.
+              <strong>Before:</strong> English only text without audio.<br />
+              <strong>Fixed:</strong> Generated full <strong>Telugu (సులభమైన సారాంశం) & Hindi translations</strong> + multi-mode <strong>audio player</strong> (45s Summary, Action Points, Full Narration).
             </p>
           </div>
         </div>
       </div>
 
-      {/* Main Grid: Accessible Output Tabs & Smart Assistant */}
-      <div className="grid grid-cols-1 lg:grid-cols-12 gap-8 items-start">
-        {/* Left Column: Accessible Tabs */}
-        <div className="lg:col-span-8 space-y-6">
-          <AccessibleOutputTabs analysis={analysis} />
-        </div>
-
-        {/* Right Column: INCLUSA Assistant */}
-        <div className="lg:col-span-4 space-y-6">
-          <InclusaAssistant
-            documentId={analysis.id}
-            documentTitle={analysis.title}
-            documentText={analysis.structuredContent?.rawText || ''}
-          />
-        </div>
+      {/* Main Showcase: Accessible Output Tabs (Full Width) */}
+      <div className="w-full">
+        <AccessibleOutputTabs analysis={analysis} />
       </div>
+
+      {/* Floating / Expandable "Ask INCLUSA" Side Assistant Drawer */}
+      {isAssistantOpen && (
+        <div className="fixed inset-y-0 right-0 z-50 w-full max-w-md bg-white border-l-3 border-[var(--border-strong)] shadow-[-10px_0_30px_rgba(0,0,0,0.15)] flex flex-col animate-slide-in-right">
+          {/* Drawer Header */}
+          <div className="p-4 border-b-2 border-[var(--border-strong)] bg-[var(--bg-secondary)] flex items-center justify-between">
+            <div className="flex items-center gap-2">
+              <Bot className="h-5 w-5 text-amber-600" />
+              <div>
+                <h3 className="text-xs font-black text-[var(--text-primary)]">INCLUSA Assistant</h3>
+                <p className="text-[10px] text-[var(--text-muted)] font-medium">Grounded Q&A for {analysis.title}</p>
+              </div>
+            </div>
+            <button
+              type="button"
+              onClick={() => setIsAssistantOpen(false)}
+              className="p-1.5 rounded-lg border border-[var(--border-strong)] bg-white hover:bg-rose-50 text-[var(--text-primary)] hover:text-rose-600 cursor-pointer"
+            >
+              <X className="h-4 w-4" />
+            </button>
+          </div>
+
+          {/* Drawer Body */}
+          <div className="flex-1 overflow-y-auto p-4">
+            <InclusaAssistant
+              documentId={analysis.id}
+              documentTitle={analysis.title}
+              documentText={analysis.structuredContent?.rawText || ''}
+            />
+          </div>
+        </div>
+      )}
     </div>
   );
 }

@@ -19,6 +19,9 @@ import {
   Eye,
   CheckCircle2,
   Table as TableIcon,
+  HelpCircle,
+  ListChecks,
+  Info,
 } from 'lucide-react';
 
 interface AccessibleOutputTabsProps {
@@ -50,7 +53,7 @@ const AccessibleContentRenderer: React.FC<{ content: string; isRegionalScript?: 
       elements.push(
         <div
           key={`tbl-${tableKey++}`}
-          className="my-5 overflow-hidden rounded-2xl border-2 border-[var(--border-strong)] bg-white shadow-sm"
+          className="my-5 overflow-hidden rounded-2xl border-2 border-[var(--border-strong)] bg-white shadow-xs"
         >
           <div className="p-3 bg-amber-50 border-b-2 border-[var(--border-strong)] flex items-center gap-2 text-xs font-black text-amber-950">
             <TableIcon className="h-4 w-4 text-amber-700" />
@@ -165,6 +168,21 @@ const AccessibleContentRenderer: React.FC<{ content: string; isRegionalScript?: 
           <span>{cleanText}</span>
         </div>
       );
+    } else if (/^\d+\.\s/.test(line)) {
+      // Numbered items
+      const cleanText = line.replace(/^\d+\.\s*/, '');
+      const num = line.match(/^(\d+)\./)?.[1] || '1';
+      elements.push(
+        <div
+          key={`num-${i}`}
+          className="flex items-start gap-2.5 my-2 p-3 rounded-xl bg-amber-50 border border-amber-300 text-xs text-[var(--text-primary)] font-semibold shadow-xs"
+        >
+          <span className="h-5 w-5 rounded-full bg-amber-200 border border-amber-400 text-amber-950 font-mono font-black text-[10px] flex items-center justify-center shrink-0 mt-0.5">
+            {num}
+          </span>
+          <span>{cleanText}</span>
+        </div>
+      );
     } else if (line === '---') {
       elements.push(<hr key={`hr-${i}`} className="my-6 border-t-2 border-[var(--border-strong)]" />);
     } else {
@@ -247,7 +265,7 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
                 key={tab.id}
                 type="button"
                 onClick={() => setActiveTab(tab.id)}
-                className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-black transition-all ${
+                className={`flex items-center gap-2 py-2 px-3.5 rounded-xl text-xs font-black transition-all cursor-pointer ${
                   isActive
                     ? 'bg-white text-[var(--text-primary)] border-2 border-[var(--border-strong)] shadow-[2px_2px_0_0_#192138]'
                     : 'text-[var(--text-secondary)] hover:text-[var(--text-primary)] hover:bg-white/60'
@@ -265,7 +283,7 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
           <button
             type="button"
             onClick={() => handleCopy(out.simplifiedVersion || out.accessibleText)}
-            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 border-[var(--border-strong)] bg-white text-xs font-black text-[var(--text-primary)] shadow-[2px_2px_0_0_#192138] hover:bg-amber-50"
+            className="flex items-center gap-1.5 px-3 py-1.5 rounded-xl border-2 border-[var(--border-strong)] bg-white text-xs font-black text-[var(--text-primary)] shadow-[2px_2px_0_0_#192138] hover:bg-amber-50 cursor-pointer"
           >
             {copied ? <Check className="h-3.5 w-3.5 text-emerald-600" /> : <Copy className="h-3.5 w-3.5" />}
             <span>{copied ? 'Copied' : 'Copy'}</span>
@@ -280,10 +298,10 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
                 'text/html'
               )
             }
-            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black border-2 border-[var(--border-strong)] shadow-[2px_2px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all"
+            className="flex items-center gap-1.5 px-3.5 py-1.5 rounded-xl bg-[#059669] hover:bg-[#047857] text-white text-xs font-black border-2 border-[var(--border-strong)] shadow-[2px_2px_0_0_#192138] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all cursor-pointer"
           >
             <Download className="h-3.5 w-3.5" />
-            <span>Download</span>
+            <span>Download HTML</span>
           </button>
         </div>
       </div>
@@ -293,34 +311,38 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
         {/* TAB 1: SIMPLIFIED VERSION */}
         {activeTab === 'simplified' && (
           <div className="space-y-6">
+            {/* Plain Language Banner */}
             <div className="p-4 rounded-2xl bg-purple-50 border-2 border-purple-300">
               <div className="flex items-center gap-2 font-black text-xs text-purple-950 mb-1">
                 <Sparkles className="h-4 w-4 text-purple-700" />
                 <span>Cognitive Plain-Language Transformation (7th Grade Level)</span>
               </div>
               <p className="text-xs text-purple-900 font-medium">
-                Simplified syntax, eliminated dense jargon, and structured into clear takeaways.
+                Written so anyone can understand: explains what this document is, who it is for, key rules, and what actions to take.
               </p>
             </div>
 
-            {/* Key Takeaways */}
+            {/* Structured Action Steps */}
             {out.stepByStepGuide && out.stepByStepGuide.length > 0 && (
-              <div>
-                <h3 className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)] mb-3">
-                  Key Points & Action Steps:
-                </h3>
+              <div className="space-y-3">
+                <div className="flex items-center gap-2">
+                  <ListChecks className="h-4 w-4 text-[#059669]" />
+                  <h3 className="text-xs font-black uppercase tracking-wider text-[var(--text-primary)]">
+                    What You Need to Do (Action Steps):
+                  </h3>
+                </div>
                 <div className="grid grid-cols-1 sm:grid-cols-2 gap-3">
                   {out.stepByStepGuide.map((step: string, idx: number) => {
                     const cleanStep = step.replace(/^[*•\-\d.]+\s*/, '').trim();
                     return (
                       <div
                         key={idx}
-                        className="p-3.5 rounded-2xl border-2 border-[var(--border-strong)] bg-white text-xs text-[var(--text-primary)] leading-relaxed font-semibold shadow-xs flex items-start gap-2"
+                        className="p-3.5 rounded-2xl border-2 border-[var(--border-strong)] bg-white text-xs text-[var(--text-primary)] leading-relaxed font-semibold shadow-xs flex items-start gap-2.5"
                       >
-                        <span className="font-black text-[#059669] font-mono shrink-0">
-                          0{idx + 1}.
+                        <span className="h-6 w-6 rounded-full bg-emerald-100 border border-emerald-300 text-emerald-950 font-black font-mono text-xs flex items-center justify-center shrink-0">
+                          {idx + 1}
                         </span>
-                        <span>{cleanStep}</span>
+                        <span className="pt-0.5">{cleanStep}</span>
                       </div>
                     );
                   })}
@@ -339,23 +361,40 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
         {activeTab === 'translation' && (
           <div className="space-y-6">
             {/* Language Selector */}
-            <div className="flex items-center gap-2.5 pb-4 border-b-2 border-[var(--border-strong)]">
-              <span className="text-xs font-black text-[var(--text-primary)]">Select Language:</span>
-              {Object.entries(out.translations).map(([code, trans]: [string, any]) => (
-                <button
-                  key={code}
-                  type="button"
-                  onClick={() => setActiveLanguage(code)}
-                  className={`px-4 py-2 rounded-xl text-xs font-black transition-all border-2 border-[var(--border-strong)] ${
-                    activeLanguage === code
-                      ? 'bg-amber-200 text-amber-950 shadow-[2px_2px_0_0_#192138]'
-                      : 'bg-white text-[var(--text-secondary)] hover:bg-amber-50'
-                  }`}
-                >
-                  {trans.languageName} ({code.toUpperCase()})
-                </button>
-              ))}
+            <div className="flex flex-wrap items-center justify-between gap-3 pb-4 border-b-2 border-[var(--border-strong)]">
+              <div className="flex items-center gap-2">
+                <Languages className="h-4 w-4 text-[#059669]" />
+                <span className="text-xs font-black text-[var(--text-primary)]">Select Language:</span>
+              </div>
+              <div className="flex items-center gap-2">
+                {Object.entries(out.translations).map(([code, trans]: [string, any]) => (
+                  <button
+                    key={code}
+                    type="button"
+                    onClick={() => setActiveLanguage(code)}
+                    className={`px-4 py-2 rounded-xl text-xs font-black transition-all border-2 border-[var(--border-strong)] cursor-pointer ${
+                      activeLanguage === code
+                        ? 'bg-amber-200 text-amber-950 shadow-[2px_2px_0_0_#192138]'
+                        : 'bg-white text-[var(--text-secondary)] hover:bg-amber-50'
+                    }`}
+                  >
+                    {trans.languageName} ({code.toUpperCase()})
+                  </button>
+                ))}
+              </div>
             </div>
+
+            {/* Regional Notice Banner */}
+            {selectedLang === 'te' && (
+              <div className="p-4 rounded-2xl bg-emerald-50 border-2 border-emerald-300">
+                <div className="flex items-center gap-2 text-xs font-black text-emerald-950 mb-1">
+                  <span>తెలుగు సులభమైన సారాంశం (Telugu Accessible Translation)</span>
+                </div>
+                <p className="text-xs text-emerald-900 font-medium">
+                  అసలు పత్రంలోని సమాచారం, నిబంధనలు, అర్హత ప్రమాణాలు మరియు ముఖ్యమైన తేదీలు తెలుగులో ఖచ్చితంగా అనువదించబడ్డాయి.
+                </p>
+              </div>
+            )}
 
             {out.translations[selectedLang] ? (
               <div className="space-y-4">
@@ -380,10 +419,10 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
             <div className="p-4 rounded-2xl bg-sky-50 border-2 border-sky-300">
               <div className="flex items-center gap-2 font-black text-xs text-sky-950 mb-1">
                 <ImageIcon className="h-4 w-4 text-sky-700" />
-                <span>Multi-Tiered Visual & Data Descriptions</span>
+                <span>Multi-Tiered Visual, Diagram & Chart Understander</span>
               </div>
               <p className="text-xs text-sky-900 font-medium">
-                Includes concise alt text for screen readers, detailed numerical trend analysis, and plain-language summaries.
+                Genuinely explains what the visual communicates: chronological process stages, data trends, highest/lowest metrics, and plain-language conclusions.
               </p>
             </div>
 
@@ -391,20 +430,21 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
               {out.imageDescriptions.map((img: any, idx: number) => (
                 <div
                   key={img.id || idx}
-                  className="p-6 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] space-y-3.5 shadow-sm"
+                  className="p-6 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] space-y-4 shadow-xs"
                 >
                   <div className="flex items-center justify-between pb-2 border-b border-[var(--border-color)]">
-                    <span className="text-xs font-black text-[var(--text-primary)]">
-                      Figure / Chart {idx + 1}
+                    <span className="text-xs font-black text-[var(--text-primary)] flex items-center gap-2">
+                      <ImageIcon className="h-4 w-4 text-sky-600" />
+                      <span>Figure / Diagram {idx + 1}</span>
                     </span>
-                    <span className="text-[10px] font-black text-emerald-950 bg-emerald-100 px-2 py-0.5 rounded-full border border-emerald-300">
-                      WCAG 1.1.1 Remediation
+                    <span className="text-[10px] font-black text-emerald-950 bg-emerald-100 px-2.5 py-0.5 rounded-full border border-emerald-300">
+                      WCAG 1.1.1 Semantic Remediation
                     </span>
                   </div>
 
                   <div>
                     <span className="text-[11px] font-black text-sky-800 block mb-1">
-                      Alt Text (Concise):
+                      1. Concise Alt Text (Screen Reader Tag):
                     </span>
                     <p className="text-xs text-[var(--text-primary)] bg-white p-3 rounded-xl border border-[var(--border-strong)] font-mono font-bold">
                       &ldquo;{img.altText}&rdquo;
@@ -413,7 +453,7 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
 
                   <div>
                     <span className="text-[11px] font-black text-emerald-800 block mb-1">
-                      Detailed Narrative & Data Breakdown:
+                      2. Detailed Meaning, Stages & Data Breakdown:
                     </span>
                     <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed bg-white p-3.5 rounded-xl border border-[var(--border-color)]">
                       {img.detailed}
@@ -422,9 +462,9 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
 
                   <div>
                     <span className="text-[11px] font-black text-purple-800 block mb-1">
-                      Plain-Language Summary:
+                      3. Plain-Language Summary (What this picture means to the user):
                     </span>
-                    <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed">
+                    <p className="text-xs text-[var(--text-secondary)] font-medium leading-relaxed bg-purple-50/50 p-3 rounded-xl border border-purple-200 text-purple-950">
                       {img.simple}
                     </p>
                   </div>
@@ -437,6 +477,9 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
         {/* TAB 4: ACCESSIBLE TEXT */}
         {activeTab === 'accessible_text' && (
           <div className="space-y-4">
+            <div className="p-4 rounded-2xl bg-amber-50 border-2 border-amber-300 text-xs text-amber-950 font-bold">
+              Screen-reader friendly structured edition with semantic headings, lists, and figure descriptions.
+            </div>
             <div className="p-6 sm:p-8 rounded-3xl border-2 border-[var(--border-strong)] bg-[var(--bg-primary)] shadow-inner">
               <AccessibleContentRenderer content={out.accessibleText} />
             </div>
@@ -462,7 +505,7 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
                 <button
                   type="button"
                   onClick={() => setHtmlViewMode('preview')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
                     htmlViewMode === 'preview'
                       ? 'bg-amber-200 text-amber-950 border-[var(--border-strong)] shadow-[2px_2px_0_0_#192138]'
                       : 'bg-white text-[var(--text-secondary)] border-[var(--border-color)]'
@@ -476,7 +519,7 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
                 <button
                   type="button"
                   onClick={() => setHtmlViewMode('code')}
-                  className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all ${
+                  className={`px-3 py-1.5 rounded-xl text-xs font-black border-2 transition-all cursor-pointer ${
                     htmlViewMode === 'code'
                       ? 'bg-amber-200 text-amber-950 border-[var(--border-strong)] shadow-[2px_2px_0_0_#192138]'
                       : 'bg-white text-[var(--text-secondary)] border-[var(--border-color)]'
@@ -492,7 +535,7 @@ export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ anal
               <button
                 type="button"
                 onClick={() => handleCopy(out.screenReaderHtml)}
-                className="text-xs font-black text-[#059669] hover:underline flex items-center gap-1"
+                className="text-xs font-black text-[#059669] hover:underline flex items-center gap-1 cursor-pointer"
               >
                 <Copy className="h-3.5 w-3.5" />
                 <span>Copy HTML</span>

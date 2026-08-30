@@ -67,12 +67,33 @@ export async function POST(req: NextRequest) {
         },
       });
       statusCode = response.status;
+      if (!response.ok) {
+        return apiSuccess({
+          url: parsedUrl.toString(),
+          status: 'failed',
+          statusCode,
+          error: `The website returned HTTP ${statusCode} (${response.statusText || 'Error'}). INCLUSA could not inspect its DOM.`,
+          score: null,
+          issues: [],
+          stats: {
+            totalElementsChecked: 0,
+            imagesWithoutAlt: 0,
+            headingSkips: 0,
+            unlabelledButtons: 0,
+            unlabelledInputs: 0,
+            genericLinks: 0,
+            missingLang: false,
+          },
+        });
+      }
       html = await response.text();
     } catch (fetchErr: any) {
       return apiSuccess({
         url: parsedUrl.toString(),
+        status: 'failed',
+        statusCode: 0,
         error: `Could not reach ${parsedUrl.hostname} (${fetchErr.message || 'Connection timed out'}). Ensure the URL is public and accessible.`,
-        score: calculateInitialScore([]),
+        score: null,
         issues: [],
         stats: {
           totalElementsChecked: 0,
@@ -82,7 +103,7 @@ export async function POST(req: NextRequest) {
           unlabelledInputs: 0,
           genericLinks: 0,
           missingLang: false,
-        }
+        },
       });
     } finally {
       clearTimeout(timeoutId);
