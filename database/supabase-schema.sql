@@ -105,26 +105,32 @@ ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 
 -- Strict User Isolation Policies (Users can only read, insert, update, delete their own records)
+DROP POLICY IF EXISTS "Users can access own profiles" ON accessibility_profiles;
 CREATE POLICY "Users can access own profiles" ON accessibility_profiles
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can access own documents" ON documents;
 CREATE POLICY "Users can access own documents" ON documents
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can access own analyses" ON analyses;
 CREATE POLICY "Users can access own analyses" ON analyses
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can access own accessibility_issues" ON accessibility_issues;
 CREATE POLICY "Users can access own accessibility_issues" ON accessibility_issues
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can access own chat_messages" ON chat_messages;
 CREATE POLICY "Users can access own chat_messages" ON chat_messages
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
 
+DROP POLICY IF EXISTS "Users can access own reports" ON reports;
 CREATE POLICY "Users can access own reports" ON reports
   FOR ALL USING (auth.uid() = user_id)
   WITH CHECK (auth.uid() = user_id);
