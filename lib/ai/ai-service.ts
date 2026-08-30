@@ -1000,69 +1000,52 @@ ${text.slice(0, 4000)}`;
       };
     }
 
-    // Universal Neural Translation Engine (Google Free Neural REST + MyMemory fallback)
+    // Universal Neural Translation Engine with fast concurrent processing
     try {
-      const cleanLines = text.split('\n');
-      const translatedChunks: string[] = [];
+      const cleanLines = text.split('\n').slice(0, 35);
 
-      for (const line of cleanLines.slice(0, 40)) {
-        if (!line.trim()) {
-          translatedChunks.push('');
-          continue;
-        }
+      const translateLine = async (line: string): Promise<string> => {
+        if (!line.trim()) return '';
 
-        // Keep Markdown heading prefixes
         const headingMatch = line.match(/^(#+)\s*(.*)$/);
         const prefix = headingMatch ? `${headingMatch[1]} ` : '';
         const lineText = headingMatch ? headingMatch[2] : line;
 
-        let translatedLine = '';
+        // Skip translation for pure formatting/table boundaries
+        if (lineText.includes('---')) return line;
 
-        // 1. Try Google Translate Neural API
+        // 1. Try Google Translate Neural API with 2.5s timeout
         try {
+          const controller = new AbortController();
+          const timeout = setTimeout(() => controller.abort(), 2500);
           const gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLanguage}&dt=t&q=${encodeURIComponent(lineText)}`;
-          const gRes = await fetch(gUrl);
+          const gRes = await fetch(gUrl, { signal: controller.signal });
+          clearTimeout(timeout);
           if (gRes.ok) {
             const gData = await gRes.json();
             if (gData && Array.isArray(gData[0])) {
               const fullTrans = gData[0].map((segment: any) => segment[0]).filter(Boolean).join('');
               if (fullTrans && fullTrans.trim().length > 0) {
-                translatedLine = fullTrans;
+                return `${prefix}${fullTrans}`;
               }
             }
           }
-        } catch (gErr) {
-          // Proceed to next fallback
+        } catch {
+          // Fall through to dictionary
         }
 
-        // 2. Try MyMemory Neural API if Google failed
-        if (!translatedLine) {
-          try {
-            const mmUrl = `https://api.mymemory.translated.net/get?q=${encodeURIComponent(lineText.slice(0, 450))}&langpair=en|${targetLanguage}`;
-            const mmRes = await fetch(mmUrl);
-            if (mmRes.ok) {
-              const mmData = await mmRes.json();
-              if (mmData.responseData?.translatedText && !mmData.responseData.translatedText.includes('MYMEMORY WARNING')) {
-                translatedLine = mmData.responseData.translatedText;
-              }
-            }
-          } catch (mmErr) {
-            // Proceed to dictionary
-          }
+        // 2. Dictionary Fallback
+        let translated = lineText;
+        const dictionary = targetLanguage === 'hi' ? HINDI_DICTIONARY : TELUGU_DICTIONARY;
+        for (const [enTerm, transTerm] of Object.entries(dictionary)) {
+          const regex = new RegExp(`\\b${enTerm}\\b`, 'gi');
+          translated = translated.replace(regex, transTerm);
         }
 
-        // 3. High-quality dictionary fallback if online translation fails
-        if (!translatedLine) {
-          translatedLine = lineText;
-          const dictionary = targetLanguage === 'hi' ? HINDI_DICTIONARY : TELUGU_DICTIONARY;
-          for (const [enTerm, transTerm] of Object.entries(dictionary)) {
-            const regex = new RegExp(`\\b${enTerm}\\b`, 'gi');
-            translatedLine = translatedLine.replace(regex, transTerm);
-          }
-        }
+        return `${prefix}${translated}`;
+      };
 
-        translatedChunks.push(`${prefix}${translatedLine}`);
-      }
+      const translatedChunks = await Promise.all(cleanLines.map((l) => translateLine(l)));
 
       if (translatedChunks.length > 0) {
         let fullTranslatedMarkdown = translatedChunks.join('\n');

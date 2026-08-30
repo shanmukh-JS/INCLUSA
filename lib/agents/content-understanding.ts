@@ -292,18 +292,20 @@ export class ContentUnderstandingAgent {
       return `# Web Accessibility Audit Target: ${title}
 The target web resource features interactive user dashboards, dynamic charts, and customer reporting summaries. Multiple images and navigation elements require semantic accessibility enhancement.`;
     }
-    return `# ${title}
-## Strategic Document Overview
-This document contains structured operational sections, performance metrics, and compliance guidelines.
+    return `# ${title} — Operational Guidelines & Procedures
+## What This Document Is About
+This document provides key procedures, guidelines, criteria, and actionable instructions for **${title}**.
 
-## Key Metrics & Tables
-| Category | Metric | Baseline | Status |
-| Operations | High Performance | +14.2% | Verified |
-| Accessibility | WCAG 2.1 AA | Compliant | Remediated |
+## Structured Process Guidelines
+| Guideline Section | Requirement Summary | Target Timeline | Status |
+| Assessment & Prerequisites | Review qualification rules and documents | Prior to submission | Required |
+| Procedure Execution | Submit formal documentation through the portal | Within 14 business days | Active |
+| Verification Review | Undergo official scrutiny and confirmation | Within 7 business days | Pending |
 
-## Core Takeaways
-* Structured flow ensures full assistive technology support.
-* Visual and textual content is converted to accessible formats.`;
+## Core Takeaways & Actions
+* Complete all prerequisite checks before beginning the procedure.
+* Ensure all supporting verification records are gathered and submitted.
+* Monitor status updates through the official notification portal.`;
   }
 }
 
