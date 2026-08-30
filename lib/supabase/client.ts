@@ -1,6 +1,7 @@
 /**
  * INCLUSA Supabase Production Client & Auth Provider
  * Lightweight, zero-external-dependency direct implementation of the Supabase Auth & PostgREST API.
+ * Forwards user JWT for strict Row-Level Security (RLS) enforcement.
  */
 
 export interface SupabaseUser {
@@ -32,10 +33,20 @@ export interface SupabaseAuthResponse<T = any> {
 export class SupabaseRestClient {
   private url: string;
   private anonKey: string;
+  private userToken?: string;
 
-  constructor(url: string, anonKey: string) {
+  constructor(url: string, anonKey: string, userToken?: string) {
     this.url = url.replace(/\/+$/, '');
     this.anonKey = anonKey;
+    this.userToken = userToken;
+  }
+
+  public setAuthToken(token?: string) {
+    this.userToken = token;
+  }
+
+  private getAuthHeader(): string {
+    return `Bearer ${this.userToken || this.anonKey}`;
   }
 
   public get auth() {
@@ -103,13 +114,7 @@ export class SupabaseRestClient {
 
           const json = await res.json();
           if (!res.ok) {
-            return {
-              data: null,
-              error: {
-                message: json.error_description || json.msg || json.message || 'Invalid email or password',
-                status: res.status,
-              },
-            };
+            return { data: null, error: { message: json.error_description || json.msg || json.message || 'Invalid login credentials', status: res.status } };
           }
 
           const session: SupabaseSession = {
@@ -128,11 +133,55 @@ export class SupabaseRestClient {
             error: null,
           };
         } catch (err: any) {
-          return { data: null, error: { message: err.message || 'Network error during sign in' } };
+          return { data: null, error: { message: err.message || 'Network error during sign-in' } };
         }
       },
 
-      resend: async (params: { type: string; email: string }): Promise<SupabaseAuthResponse<{ message?: string }>> => {
+      getUser: async (jwtToken?: string): Promise<SupabaseAuthResponse<{ user: SupabaseUser }>> => {
+        const token = jwtToken || this.userToken;
+        if (!token) {
+          return { data: null, error: { message: 'No active session token provided' } };
+        }
+
+        try {
+          const res = await fetch(`${this.url}/auth/v1/user`, {
+            headers: {
+              apikey: this.anonKey,
+              Authorization: `Bearer ${token}`,
+            },
+          });
+
+          const json = await res.json();
+          if (!res.ok) {
+            return { data: null, error: { message: json.msg || json.message || 'Failed to authenticate user', status: res.status } };
+          }
+
+          return { data: { user: json.user || json }, error: null };
+        } catch (err: any) {
+          return { data: null, error: { message: err.message || 'Network error verifying user' } };
+        }
+      },
+
+      signOut: async (jwtToken?: string): Promise<SupabaseAuthResponse<void>> => {
+        try {
+          const token = jwtToken || this.userToken;
+          if (token) {
+            await fetch(`${this.url}/auth/v1/logout`, {
+              method: 'POST',
+              headers: {
+                apikey: this.anonKey,
+                Authorization: `Bearer ${token}`,
+              },
+            });
+          }
+          this.userToken = undefined;
+          return { data: undefined, error: null };
+        } catch (err: any) {
+          return { data: null, error: { message: err.message || 'Sign out error' } };
+        }
+      },
+
+      resend: async (params: { type: string; email: string }): Promise<SupabaseAuthResponse<void>> => {
         try {
           const res = await fetch(`${this.url}/auth/v1/resend`, {
             method: 'POST',
@@ -140,63 +189,15 @@ export class SupabaseRestClient {
               'Content-Type': 'application/json',
               apikey: this.anonKey,
             },
-            body: JSON.stringify({
-              type: params.type || 'signup',
-              email: params.email,
-            }),
+            body: JSON.stringify(params),
           });
           const json = await res.json();
           if (!res.ok) {
-            return {
-              data: null,
-              error: {
-                message: json.error_description || json.msg || json.message || 'Failed to resend confirmation email',
-                status: res.status,
-              },
-            };
-          }
-          return { data: { message: 'Confirmation email resent successfully' }, error: null };
-        } catch (err: any) {
-          return { data: null, error: { message: err.message || 'Network error during resend' } };
-        }
-      },
-
-      getUser: async (jwtToken?: string): Promise<SupabaseAuthResponse<{ user: SupabaseUser | null }>> => {
-        if (!jwtToken) return { data: { user: null }, error: null };
-        try {
-          const res = await fetch(`${this.url}/auth/v1/user`, {
-            method: 'GET',
-            headers: {
-              apikey: this.anonKey,
-              Authorization: `Bearer ${jwtToken}`,
-            },
-          });
-
-          if (!res.ok) {
-            return { data: { user: null }, error: { message: 'Invalid or expired token', status: res.status } };
-          }
-
-          const user = await res.json();
-          return { data: { user }, error: null };
-        } catch (err: any) {
-          return { data: { user: null }, error: { message: err.message } };
-        }
-      },
-
-      signOut: async (jwtToken?: string): Promise<SupabaseAuthResponse<void>> => {
-        try {
-          if (jwtToken) {
-            await fetch(`${this.url}/auth/v1/logout`, {
-              method: 'POST',
-              headers: {
-                apikey: this.anonKey,
-                Authorization: `Bearer ${jwtToken}`,
-              },
-            });
+            return { data: null, error: { message: json.msg || json.message || 'Resend confirmation email failed' } };
           }
           return { data: undefined, error: null };
-        } catch {
-          return { data: undefined, error: null };
+        } catch (err: any) {
+          return { data: null, error: { message: err.message || 'Error resending confirmation' } };
         }
       },
 
@@ -234,7 +235,7 @@ export class SupabaseRestClient {
               method: 'POST',
               headers: {
                 apikey: this.anonKey,
-                Authorization: `Bearer ${this.anonKey}`,
+                Authorization: this.getAuthHeader(),
                 ...(options?.contentType ? { 'Content-Type': options.contentType } : {}),
               },
               body: fileBlob,
@@ -262,7 +263,7 @@ export class SupabaseRestClient {
         const res = await fetch(queryUrl, {
           headers: {
             apikey: this.anonKey,
-            Authorization: `Bearer ${this.anonKey}`,
+            Authorization: this.getAuthHeader(),
           },
         });
         const data = await res.json();
@@ -305,7 +306,7 @@ export class SupabaseRestClient {
             headers: {
               'Content-Type': 'application/json',
               apikey: this.anonKey,
-              Authorization: `Bearer ${this.anonKey}`,
+              Authorization: this.getAuthHeader(),
               Prefer: 'return=representation',
             },
             body: JSON.stringify(payload),
@@ -324,7 +325,7 @@ export class SupabaseRestClient {
             headers: {
               'Content-Type': 'application/json',
               apikey: this.anonKey,
-              Authorization: `Bearer ${this.anonKey}`,
+              Authorization: this.getAuthHeader(),
               Prefer: 'resolution=merge-duplicates,return=representation',
             },
             body: JSON.stringify(payload),
@@ -343,7 +344,7 @@ export class SupabaseRestClient {
               method: 'DELETE',
               headers: {
                 apikey: this.anonKey,
-                Authorization: `Bearer ${this.anonKey}`,
+                Authorization: this.getAuthHeader(),
               },
             });
             return { error: res.ok ? null : { message: 'Delete failed' } };
@@ -359,8 +360,6 @@ export class SupabaseRestClient {
 const supabaseUrl = process.env.NEXT_PUBLIC_SUPABASE_URL || '';
 const supabaseAnonKey = process.env.NEXT_PUBLIC_SUPABASE_ANON_KEY || '';
 
-let clientSingleton: SupabaseRestClient | null = null;
-
 export function isSupabaseConfigured(): boolean {
   return Boolean(
     supabaseUrl &&
@@ -370,14 +369,11 @@ export function isSupabaseConfigured(): boolean {
   );
 }
 
-export function getSupabaseClient(): SupabaseRestClient | null {
+export function getSupabaseClient(userToken?: string): SupabaseRestClient | null {
   if (!isSupabaseConfigured()) {
     return null;
   }
-  if (!clientSingleton) {
-    clientSingleton = new SupabaseRestClient(supabaseUrl, supabaseAnonKey);
-  }
-  return clientSingleton;
+  return new SupabaseRestClient(supabaseUrl, supabaseAnonKey, userToken);
 }
 
 export function getSupabaseAdminClient(): SupabaseRestClient | null {

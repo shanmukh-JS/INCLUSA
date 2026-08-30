@@ -175,9 +175,9 @@ class DocumentStore {
       }
     }
 
-    // Async sync to Supabase Cloud if authenticated
+    // Async sync to Supabase Cloud with user_id attached
     if (typeof window !== 'undefined' && ownerId) {
-      saveAnalysisToSupabase(scopedAnalysis).catch((err) => {
+      saveAnalysisToSupabase(scopedAnalysis, ownerId).catch((err) => {
         console.warn('Supabase cloud sync deferred:', err);
       });
     }
@@ -221,7 +221,7 @@ class DocumentStore {
   public async syncWithSupabaseCloud(userId?: string): Promise<{ count: number }> {
     if (!userId) return { count: 0 };
     try {
-      const cloudAnalyses = await fetchAnalysesFromSupabase();
+      const cloudAnalyses = await fetchAnalysesFromSupabase(userId);
       if (cloudAnalyses && cloudAnalyses.length > 0) {
         const userCloud = cloudAnalyses.filter((ca) => ca.userId === userId || !ca.userId);
         let local: DocumentAnalysis[] = [];

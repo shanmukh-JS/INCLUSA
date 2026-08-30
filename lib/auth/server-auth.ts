@@ -76,8 +76,12 @@ export async function getAuthenticatedUser(req: NextRequest): Promise<User | nul
     }
   }
 
-  // Fallback: Decode JWT payload without signature verification (dev mode only)
-  // This allows the app to function when Supabase is unreachable
+  // In production, strictly require cryptographic verification and reject unverified fallback tokens
+  if (process.env.NODE_ENV === 'production' && isSupabaseConfigured()) {
+    return null;
+  }
+
+  // Development-only fallback: Decode JWT payload for local offline mock testing
   const payload = decodeJwtPayload(token);
   if (payload && payload.sub) {
     // Check if token is expired

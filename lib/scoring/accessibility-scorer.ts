@@ -6,6 +6,9 @@ import {
   SeverityLevel,
   VerificationResult,
 } from '@/types';
+import { WCAG_ACCESSIBILITY_RULES } from '../rules/wcag-rules';
+
+export const TOTAL_WCAG_RULES = WCAG_ACCESSIBILITY_RULES.length;
 
 // Category Weights (Sum = 1.0 / 100%)
 export const CATEGORY_WEIGHTS: Record<RuleCategory, number> = {
@@ -93,9 +96,9 @@ export function calculateInitialScore(issues: AccessibilityIssue[]): Accessibili
   const lowIssues = issues.filter((i) => i.severity === 'low' && !i.isResolved).length;
   const totalIssues = criticalIssues + highIssues + mediumIssues + lowIssues;
 
-  // Passed checks count (24 baseline WCAG rules - unresolved rules)
+  // Passed checks count (Total WCAG rules - unresolved rules)
   const uniqueTriggeredRuleIds = new Set(issues.map((i) => i.ruleId)).size;
-  const passedChecks = Math.max(0, 24 - uniqueTriggeredRuleIds);
+  const passedChecks = Math.max(0, TOTAL_WCAG_RULES - uniqueTriggeredRuleIds);
 
   return {
     overallScore,
@@ -140,7 +143,8 @@ export function calculateFinalScore(
   const mediumIssues = updatedIssues.filter((i) => i.severity === 'medium' && !i.isResolved).length;
   const lowIssues = updatedIssues.filter((i) => i.severity === 'low' && !i.isResolved).length;
   const totalIssues = criticalIssues + highIssues + mediumIssues + lowIssues;
-  const passedChecks = 24 - totalIssues;
+  const remainingUnresolvedRules = new Set(updatedIssues.filter((i) => !i.isResolved).map((i) => i.ruleId)).size;
+  const passedChecks = Math.max(0, TOTAL_WCAG_RULES - remainingUnresolvedRules);
 
   const finalScore: AccessibilityScoreResult = {
     overallScore,
@@ -151,7 +155,7 @@ export function calculateFinalScore(
     highIssues,
     mediumIssues,
     lowIssues,
-    passedChecks: Math.max(0, passedChecks),
+    passedChecks,
     calculatedAt: new Date().toISOString(),
   };
 
