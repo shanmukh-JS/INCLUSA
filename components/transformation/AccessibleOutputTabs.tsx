@@ -24,8 +24,10 @@ import {
   Info,
 } from 'lucide-react';
 
-interface AccessibleOutputTabsProps {
+export interface AccessibleOutputTabsProps {
   analysis: DocumentAnalysis;
+  selectedTab?: string;
+  onTabChange?: (tabId: string) => void;
 }
 
 /**
@@ -205,8 +207,17 @@ const AccessibleContentRenderer: React.FC<{ content: string; isRegionalScript?: 
   return <div className="space-y-1">{elements}</div>;
 };
 
-export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({ analysis }) => {
-  const [activeTab, setActiveTab] = useState<string>('simplified');
+export const AccessibleOutputTabs: React.FC<AccessibleOutputTabsProps> = ({
+  analysis,
+  selectedTab: controlledTab,
+  onTabChange,
+}) => {
+  const [internalTab, setInternalTab] = useState<string>('simplified');
+  const activeTab = controlledTab !== undefined ? controlledTab : internalTab;
+  const setActiveTab = (tabId: string) => {
+    setInternalTab(tabId);
+    if (onTabChange) onTabChange(tabId);
+  };
   const [activeLanguage, setActiveLanguage] = useState<string>('te');
   const [copied, setCopied] = useState(false);
   const [htmlViewMode, setHtmlViewMode] = useState<'preview' | 'code'>('preview');
