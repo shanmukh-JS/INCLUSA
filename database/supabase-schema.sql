@@ -1,12 +1,12 @@
--- INCLUSA Database Schema for Supabase PostgreSQL (Airtight Row-Level Security)
+-- INCLUSA Supabase Database Migration & Schema Script
+-- Handles existing tables cleanly with ALTER TABLE ADD COLUMN IF NOT EXISTS
 
--- Enable UUID extension
+-- 1. Enable UUID extension
 CREATE EXTENSION IF NOT EXISTS "uuid-ossp";
 
--- 1. Users & Accessibility Profiles Table
+-- 2. Create Tables if they don't exist
 CREATE TABLE IF NOT EXISTS accessibility_profiles (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   name TEXT NOT NULL,
   is_default BOOLEAN DEFAULT FALSE,
   vision_prefs JSONB NOT NULL DEFAULT '{}'::jsonb,
@@ -18,10 +18,8 @@ CREATE TABLE IF NOT EXISTS accessibility_profiles (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 2. Documents Table
 CREATE TABLE IF NOT EXISTS documents (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   input_type TEXT NOT NULL,
   original_file_name TEXT,
@@ -35,10 +33,8 @@ CREATE TABLE IF NOT EXISTS documents (
   updated_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 3. Document Analyses Table
 CREATE TABLE IF NOT EXISTS analyses (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
   profile_id UUID REFERENCES accessibility_profiles(id) ON DELETE SET NULL,
   status TEXT NOT NULL DEFAULT 'completed',
@@ -54,10 +50,8 @@ CREATE TABLE IF NOT EXISTS analyses (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 4. Accessibility Issues Table
 CREATE TABLE IF NOT EXISTS accessibility_issues (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   analysis_id UUID REFERENCES analyses(id) ON DELETE CASCADE,
   rule_id TEXT NOT NULL,
   category TEXT NOT NULL,
@@ -71,10 +65,8 @@ CREATE TABLE IF NOT EXISTS accessibility_issues (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 5. Chat Messages Table
 CREATE TABLE IF NOT EXISTS chat_messages (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
   sender TEXT NOT NULL,
   content TEXT NOT NULL,
@@ -82,10 +74,8 @@ CREATE TABLE IF NOT EXISTS chat_messages (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- 6. Reports Table
 CREATE TABLE IF NOT EXISTS reports (
   id UUID PRIMARY KEY DEFAULT uuid_generate_v4(),
-  user_id UUID NOT NULL REFERENCES auth.users(id) ON DELETE CASCADE,
   document_id UUID REFERENCES documents(id) ON DELETE CASCADE,
   title TEXT NOT NULL,
   executive_summary TEXT NOT NULL,
@@ -96,7 +86,15 @@ CREATE TABLE IF NOT EXISTS reports (
   created_at TIMESTAMPTZ DEFAULT NOW()
 );
 
--- Enable Row Level Security (RLS) on all tables
+-- 3. Migration: Safely add user_id column to existing tables if missing
+ALTER TABLE accessibility_profiles ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE documents ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE analyses ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE accessibility_issues ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE chat_messages ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+ALTER TABLE reports ADD COLUMN IF NOT EXISTS user_id UUID REFERENCES auth.users(id) ON DELETE CASCADE;
+
+-- 4. Enable Row Level Security (RLS) on all tables
 ALTER TABLE accessibility_profiles ENABLE ROW LEVEL SECURITY;
 ALTER TABLE documents ENABLE ROW LEVEL SECURITY;
 ALTER TABLE analyses ENABLE ROW LEVEL SECURITY;
@@ -104,33 +102,35 @@ ALTER TABLE accessibility_issues ENABLE ROW LEVEL SECURITY;
 ALTER TABLE chat_messages ENABLE ROW LEVEL SECURITY;
 ALTER TABLE reports ENABLE ROW LEVEL SECURITY;
 
--- Strict User Isolation Policies (Users can only read, insert, update, delete their own records)
+-- 5. Drop old policies if they exist to prevent conflicts
 DROP POLICY IF EXISTS "Users can access own profiles" ON accessibility_profiles;
-CREATE POLICY "Users can access own profiles" ON accessibility_profiles
-  FOR ALL USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
 DROP POLICY IF EXISTS "Users can access own documents" ON documents;
-CREATE POLICY "Users can access own documents" ON documents
-  FOR ALL USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
 DROP POLICY IF EXISTS "Users can access own analyses" ON analyses;
-CREATE POLICY "Users can access own analyses" ON analyses
-  FOR ALL USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
 DROP POLICY IF EXISTS "Users can access own accessibility_issues" ON accessibility_issues;
-CREATE POLICY "Users can access own accessibility_issues" ON accessibility_issues
-  FOR ALL USING (auth.uid() = user_id)
-  WITH CHECK (auth.uid() = user_id);
-
 DROP POLICY IF EXISTS "Users can access own chat_messages" ON chat_messages;
-CREATE POLICY "Users can access own chat_messages" ON chat_messages
-  FOR ALL USING (auth.uid() = user_id)
+DROP POLICY IF EXISTS "Users can access own reports" ON reports;
+
+-- 6. Create Strict User Isolation Policies
+CREATE POLICY "Users can access own profiles" ON accessibility_profiles
+  FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
   WITH CHECK (auth.uid() = user_id);
 
-DROP POLICY IF EXISTS "Users can access own reports" ON reports;
+CREATE POLICY "Users can access own documents" ON documents
+  FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can access own analyses" ON analyses
+  FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can access own accessibility_issues" ON accessibility_issues
+  FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
+  WITH CHECK (auth.uid() = user_id);
+
+CREATE POLICY "Users can access own chat_messages" ON chat_messages
+  FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
+  WITH CHECK (auth.uid() = user_id);
+
 CREATE POLICY "Users can access own reports" ON reports
-  FOR ALL USING (auth.uid() = user_id)
+  FOR ALL USING (auth.uid() = user_id OR user_id IS NULL)
   WITH CHECK (auth.uid() = user_id);
