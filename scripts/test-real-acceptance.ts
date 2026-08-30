@@ -156,7 +156,7 @@ The project evaluation framework references the 2026 Regional Energy Transition 
 
   console.log('   ✓ Simplified Plain Language Generated:');
   console.log('     --- SIMPLIFIED SAMPLE (First 250 chars) ---');
-  console.log(`     ${transformedOutput.simplifiedVersion.slice(0, 250).replace(/\n/g, '\n     ')}...`);
+  console.log(`     ${(transformedOutput.simplifiedVersion || '').slice(0, 250).replace(/\n/g, '\n     ')}...`);
   console.log('   ✓ Action Steps (Step-by-step Guide):');
   (transformedOutput.stepByStepGuide || []).slice(0, 4).forEach((step, i) => {
     console.log(`     ${i + 1}. ${step}`);

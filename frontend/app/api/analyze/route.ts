@@ -8,7 +8,7 @@ import { DEFAULT_ACCESSIBILITY_PROFILE } from '@/lib/storage/document-store';
 export async function POST(req: NextRequest) {
   try {
     const body = await req.json();
-    const { inputType, title, fileName, rawText, url, fileSizeBytes, profile } = body;
+    const { inputType, title, fileName, rawText, url, fileSizeBytes, fileDataUrl, profile } = body;
 
     if (!inputType) {
       return NextResponse.json({ error: 'Missing required field: inputType' }, { status: 400 });
@@ -21,6 +21,7 @@ export async function POST(req: NextRequest) {
       rawText,
       url,
       fileSizeBytes,
+      fileDataUrl,
     });
 
     const issues = accessibilityAuditAgent.audit(structuredContent);

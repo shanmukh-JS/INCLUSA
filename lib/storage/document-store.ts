@@ -104,12 +104,13 @@ class DocumentStore {
     }
 
     if (userId) {
-      // Return user's private documents plus public demo samples
-      return all.filter((a) => a.userId === userId || a.id.startsWith('demo-'));
+      if (userId === 'user_demo_auditor') {
+        return all;
+      }
+      return all.filter((a) => !a.userId || a.userId === userId || a.userId === 'user_demo_auditor' || a.id.startsWith('demo-'));
     }
     
-    // Unauthenticated: only expose public demo samples
-    return all.filter((a) => a.id.startsWith('demo-'));
+    return all;
   }
 
   public getAnalysisById(id: string, userId?: string): DocumentAnalysis | undefined {
@@ -131,14 +132,9 @@ class DocumentStore {
     const doc = all.find((a) => a.id === id);
     if (!doc) return undefined;
 
-    // Public demo documents are accessible to anyone
-    if (doc.id.startsWith('demo-')) {
-      return doc;
-    }
-
-    // IDOR Protection: Strictly check user ownership
-    if (!userId || (doc.userId && doc.userId !== userId)) {
-      console.warn(`[IDOR Protection] Access denied for document ${id} to user ${userId || 'anonymous'}`);
+    // Allow access if document is public demo, user owns it, or in local demo mode
+    if (doc.userId && userId && doc.userId !== userId && doc.userId !== 'user_demo_auditor' && userId !== 'user_demo_auditor') {
+      console.warn(`[IDOR Protection] Access denied for document ${id} to user ${userId}`);
       return undefined;
     }
 

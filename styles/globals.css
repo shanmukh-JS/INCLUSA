@@ -236,8 +236,7 @@ body {
 
 /* Background Pattern */
 .cloud-bg {
-  background-image: radial-gradient(#E8E2D5 1.5px, transparent 1.5px);
-  background-size: 24px 24px;
+  background-color: transparent;
 }
 
 /* Keyframe Animations */

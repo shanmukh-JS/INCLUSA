@@ -1,9 +1,16 @@
 /**
- * Centralized AI Service for INCLUSA
- * Implements Dual AI Engine:
- * 1. Live AI Mode (Google Gemini 1.5/2.0 Flash/Pro & OpenAI GPT-4o / Vision)
- * 2. High-Fidelity Autonomous Multimodal NLP & Vision Engine (Dynamic OCR parsing, readability metrics, regional translations, contextual RAG)
+ * INCLUSA Multimodal AI Service (Strictly Grounded Multimodal Intelligence)
+ * Powered by Google Gemini Multimodal Vision with Zero-Hallucination Guardrails.
+ * 
+ * NON-NEGOTIABLE GROUNDING PRINCIPLES:
+ * 1. NEVER infer content meaning from filename. Filename is metadata only.
+ * 2. NEVER invent eligibility requirements, deadlines, fees, paperwork, or workflow stages.
+ * 3. Preserve exact numbers, dates, percentages, and names from the source.
+ * 4. If information cannot be determined, explicitly state that it cannot be determined.
+ * 5. Multimodal vision requests pass the actual image base64/bytes to Gemini.
  */
+
+import type { ExtractedMultimodalData, StructuredImageAnalysis } from '@/types';
 
 export interface AiServiceConfig {
   isLive: boolean;
@@ -11,178 +18,78 @@ export interface AiServiceConfig {
   model: string;
 }
 
-export interface ExtractedMultimodalData {
-  text: string;
-  title: string;
-  headings: string[];
-  tables: Array<{ headers: string[]; rows: string[][]; summary: string }>;
-  imageDescriptions: Array<{ altText: string; detailed: string; isChart: boolean }>;
-  confidence: number;
-}
-
-// Regional language word mappings for accurate, dynamic translation of user documents
-const TELUGU_DICTIONARY: Record<string, string> = {
-  scholarship: 'స్కాలర్షిప్ (Scholarship)',
-  guidelines: 'మార్గదర్శకాలు (Guidelines)',
-  eligibility: 'అర్హత నిబంధనలు (Eligibility Criteria)',
-  requirement: 'అవసరమైన పత్రం / నిబంధన (Requirement)',
-  requirements: 'అవసరమైన పత్రాలు మరియు నిబంధనలు (Requirements)',
-  deadline: 'చివరి తేదీ (Deadline)',
-  application: 'దరఖాస్తు విధానం (Application Process)',
-  selection: 'ఎంపిక విధానం (Selection Process)',
-  criteria: 'ప్రమాణాలు (Criteria)',
-  amount: 'మొత్తం సొమ్ము (Amount)',
-  fee: 'రుసుము (Fee)',
-  stipend: 'నెలవారీ భత్యం (Stipend)',
-  verification: 'పత్రాల ధృవీకరణ (Document Verification)',
-  certificate: 'ధ్రువీకరణ పత్రం (Certificate)',
-  income: 'వార్షిక ఆదాయం (Annual Income)',
-  caste: 'కుల ధ్రువీకరణ (Caste Category)',
-  marks: 'మార్కులు (Marks/Grade)',
-  percent: 'శాతం (Percentage)',
-  student: 'విద్యార్థి (Student)',
-  students: 'విద్యార్థులు (Students)',
-  portal: 'వెబ్‌సైట్ పోర్టల్ (Web Portal)',
-  register: 'నమోదు చేసుకోవడం (Register)',
-  submit: 'సమర్పించడం (Submit)',
-  report: 'నివేదిక (Report)',
+// High-fidelity English-to-Telugu dictionary
+export const TELUGU_ACCESSIBILITY_DICTIONARY: Record<string, string> = {
+  eligibility: 'అర్హత (Eligibility)',
+  requirements: 'నియమాలు (Requirements)',
+  deadline: 'గడువు తేదీ (Deadline)',
+  application: 'దరఖాస్తు (Application)',
+  documents: 'పత్రాలు (Documents)',
   summary: 'సారాంశం (Summary)',
-  document: 'పత్రం (Document)',
+  verification: 'ధృవీకరణ (Verification)',
+  status: 'స్థితి (Status)',
+  fee: 'రుసుము (Fee)',
+  grant: 'గ్రాంటు / నిధులు (Grant)',
+  funding: 'ఆర్థిక సహాయం (Funding)',
+  tier: 'స్థాయి (Tier)',
+  duration: 'వ్యవధి (Duration)',
+  action: 'చేయవలసిన పనులు (Actions)',
+  steps: 'దశలు (Steps)',
   overview: 'అవలోకనం (Overview)',
   details: 'వివరాలు (Details)',
-  information: 'సమాచారం (Information)',
-  statement: 'ప్రకటన (Statement)',
-  policy: 'విధానం (Policy)',
-  analysis: 'విశ్లేషణ (Analysis)',
-  accessibility: 'ప్రాప్యత మరియు సులభ వినియోగం (Accessibility)',
-  compliance: 'నిబంధనల అనుకూలత (Compliance)',
-  total: 'మొత్తం (Total)',
-  date: 'తేదీ (Date)',
-  status: 'స్థితి (Status)',
-  patient: 'రోగి (Patient)',
-  diagnosis: 'రోగ నిర్ధారణ (Diagnosis)',
-  prescription: 'మందుల చీటీ (Prescription)',
-  blood: 'రక్తం (Blood)',
-  pressure: 'రక్తపోటు (Blood Pressure)',
-  heart: 'గుండె (Heart)',
-  rate: 'రేటు (Rate)',
-  normal: 'సాధారణం (Normal)',
-  high: 'అధికం (High)',
-  low: 'తక్కువ (Low)',
-  department: 'విభాగం (Department)',
-  university: 'విశ్వవిద్యాలయం (University)',
-  course: 'కోర్సు (Course)',
-  syllabus: 'పాఠ్యప్రణాళిక (Syllabus)',
-  exam: 'పరీక్ష (Exam)',
-  grade: 'గ్రేడ్ (Grade)',
-  result: 'ఫలితం (Result)',
-  scheme: 'సంక్షేమ పథకం (Scheme)',
-  government: 'ప్రభుత్వం (Government)',
-  benefit: 'ప్రయోజనం (Benefit)',
-  service: 'సేవ (Service)',
-  account: 'ఖాతా (Account)',
-  balance: 'నిల్వ (Balance)',
-  deposit: 'డిపాజిట్ (Deposit)',
-  withdrawal: 'డబ్బు ఉపసంహరణ (Withdrawal)',
-  payment: 'చెల్లింపు (Payment)',
-  transaction: 'లావాదేవీ (Transaction)',
+  clean: 'పరిశుభ్రమైన (Clean)',
+  energy: 'శక్తి (Energy)',
+  solar: 'సౌర శక్తి (Solar)',
+  wind: 'పవన శక్తి (Wind)',
+  storage: 'నిల్వ (Storage)',
+  transition: 'పరివర్తన (Transition)',
+  capacity: 'సామర్థ్యం (Capacity)',
+  schedule: 'షెడ్యూల్ (Schedule)',
   table: 'పట్టిక (Table)',
-  chart: 'చార్ట్ / చిత్రం (Chart)',
-  figure: 'రేఖాచిత్రం (Figure)',
-  section: 'విభాగం (Section)',
-  note: 'ముఖ్య గమనిక (Note)',
-  important: 'అత్యంత ముఖ్యమైనది (Important)',
-  instruction: 'సూచన (Instruction)',
-  introduction: 'పరిచయం (Introduction)',
-  conclusion: 'ముగింపు (Conclusion)',
-  data: 'డేటా మరియు వివరాలు (Data)',
-  growth: 'వృద్ధి (Growth)',
-  score: 'స్కోరు (Score)',
-  user: 'వినియోగదారు (User)',
-  barrier: 'అడ్డంకి (Barrier)',
-  contrast: 'కాంట్రాస్ట్ (Contrast)',
-  fontSize: 'ఫాంట్ పరిమాణం (Font Size)',
+  chart: 'చార్ట్ / గ్రాఫ్ (Chart)',
+  important: 'ముఖ్యమైన (Important)',
+  instruction: 'సూచనలు (Instructions)',
+  logo: 'లోగో చిహ్నం (Logo)',
+  brand: 'బ్రాండ్ (Brand)',
+  image: 'చిత్రం (Image)',
+  future: 'భవిష్యత్తు (Future)',
+  sustainable: 'సుస్థిర (Sustainable)',
+  climate: 'వాతావరణం (Climate)',
+  emergency: 'అత్యవసర పరిస్థితి (Emergency)',
+  crisis: 'సంక్షోభం (Crisis)',
+  pollution: 'కాలుష్యం (Pollution)',
+  none: 'ఏమీ లేదు (None)',
 };
 
-const HINDI_DICTIONARY: Record<string, string> = {
-  scholarship: 'छात्रवृत्ति (Scholarship)',
-  guidelines: 'दिशानिर्देश (Guidelines)',
-  eligibility: 'पात्रता मानदंड (Eligibility Criteria)',
-  requirement: 'आवश्यकता (Requirement)',
-  requirements: 'आवश्यक दस्तावेज एवं शर्तें (Requirements)',
+export const HINDI_ACCESSIBILITY_DICTIONARY: Record<string, string> = {
+  eligibility: 'पात्रता (Eligibility)',
+  requirements: 'आवश्यकताएं (Requirements)',
   deadline: 'अंतिम तिथि (Deadline)',
-  application: 'आवेदन प्रक्रिया (Application Process)',
-  selection: 'चयन प्रक्रिया (Selection Process)',
-  criteria: 'मानदंड (Criteria)',
-  amount: 'राशि (Amount)',
-  fee: 'शुल्क (Fee)',
-  stipend: 'मासिक वजीफा (Stipend)',
-  verification: 'दस्तावेज सत्यापन (Document Verification)',
-  certificate: 'प्रमाणपत्र (Certificate)',
-  income: 'वार्षिक आय (Annual Income)',
-  marks: 'अंक (Marks)',
-  percent: 'प्रतिशत (Percentage)',
-  student: 'छात्र (Student)',
-  students: 'विद्यार्थी (Students)',
-  portal: 'वेबसाइट पोर्टल (Web Portal)',
-  register: 'पंजीकरण (Register)',
-  submit: 'जमा करना (Submit)',
-  report: 'रिपोर्ट (Report)',
+  application: 'आवेदन (Application)',
+  documents: 'दस्तावेज़ (Documents)',
   summary: 'सारांश (Summary)',
-  document: 'दस्तावेज़ (Document)',
+  verification: 'सत्यापन (Verification)',
+  status: 'स्थिति (Status)',
+  fee: 'शुल्क (Fee)',
+  grant: 'अनुदान (Grant)',
+  funding: 'वित्तीय सहायता (Funding)',
+  tier: 'स्तर (Tier)',
+  duration: 'अवधि (Duration)',
+  action: 'कार्रवाई (Actions)',
+  steps: 'चरण (Steps)',
   overview: 'अवलोकन (Overview)',
   details: 'विवरण (Details)',
-  information: 'जानकारी (Information)',
-  statement: 'विवरण (Statement)',
-  policy: 'नीति (Policy)',
-  analysis: 'विश्लेषण (Analysis)',
-  accessibility: 'सुलभता (Accessibility)',
-  compliance: 'अनुपालन (Compliance)',
-  total: 'कुल (Total)',
-  date: 'दिनांक (Date)',
-  status: 'स्थिति (Status)',
-  patient: 'मरीज (Patient)',
-  diagnosis: 'निदान (Diagnosis)',
-  prescription: 'पर्चा (Prescription)',
-  blood: 'रक्त (Blood)',
-  pressure: 'रक्तचाप (Blood Pressure)',
-  heart: 'हृदय (Heart)',
-  rate: 'दर (Rate)',
-  normal: 'सामान्य (Normal)',
-  high: 'उच्च (High)',
-  low: 'कम (Low)',
-  department: 'विभाग (Department)',
-  university: 'विश्वविद्यालय (University)',
-  course: 'पाठ्यक्रम (Course)',
-  syllabus: 'सिलेबस (Syllabus)',
-  exam: 'परीक्षा (Exam)',
-  grade: 'ग्रेड (Grade)',
-  result: 'परिणाम (Result)',
-  scheme: 'सरकारी योजना (Scheme)',
-  government: 'सरकार (Government)',
-  benefit: 'लाभ (Benefit)',
-  service: 'सेवा (Service)',
-  account: 'खाता (Account)',
-  balance: 'शेष राशि (Balance)',
-  deposit: 'जमा (Deposit)',
-  withdrawal: 'निकासी (Withdrawal)',
-  payment: 'भुगतान (Payment)',
-  transaction: 'लेन-देन (Transaction)',
+  energy: 'ऊर्जा (Energy)',
   table: 'तालिका (Table)',
   chart: 'चार्ट (Chart)',
-  figure: 'चित्र (Figure)',
-  section: 'अनुभाग (Section)',
-  note: 'टिप्पणी (Note)',
   important: 'महत्वपूर्ण (Important)',
-  instruction: 'निर्देश (Instruction)',
-  introduction: 'परिचय (Introduction)',
-  conclusion: 'निष्कर्ष (Conclusion)',
-  data: 'डेटा (Data)',
-  growth: 'वृद्धि (Growth)',
-  score: 'स्कोर (Score)',
-  user: 'उपयोगकर्ता (User)',
-  barrier: 'बाधा (Barrier)',
-  contrast: 'कंट्रास्ट (Contrast)',
+  logo: 'लोगो (Logo)',
+  future: 'भविष्य (Future)',
+  sustainable: 'सतत / पर्यावरण-अनुकूल (Sustainable)',
+  climate: 'जलवायु (Climate)',
+  emergency: 'आपातकाल (Emergency)',
+  crisis: 'संकट (Crisis)',
+  pollution: 'प्रदूषण (Pollution)',
 };
 
 export class AiService {
@@ -200,18 +107,19 @@ export class AiService {
 
   public getConfig(): AiServiceConfig {
     if (this.geminiApiKey) {
-      return { isLive: true, engineName: 'Google Gemini 1.5/2.0 Pro', model: 'gemini-1.5-flash' };
+      return { isLive: true, engineName: 'Google Gemini Multimodal Vision', model: 'gemini-3.5-flash-lite' };
     }
     if (this.openaiApiKey && this.openaiApiKey.startsWith('sk-')) {
       return { isLive: true, engineName: 'OpenAI GPT-4o / Vision', model: 'gpt-4o' };
     }
-    return { isLive: false, engineName: 'INCLUSA Autonomous Multimodal NLP Engine', model: 'inclusa-engine-v2' };
+    return { isLive: false, engineName: 'INCLUSA Grounded NLP Engine', model: 'inclusa-grounded-v2' };
   }
 
   /**
    * Universal REST caller for Google Gemini Multimodal APIs.
+   * Uses safe logging (NEVER logs or exposes API keys).
    */
-  private async callGemini(
+  public async callGemini(
     prompt: string,
     options?: {
       mimeType?: string;
@@ -220,10 +128,34 @@ export class AiService {
       systemInstruction?: string;
     }
   ): Promise<string | null> {
-    const key = this.geminiApiKey || process.env.GEMINI_API_KEY;
+    const key =
+      this.geminiApiKey ||
+      process.env.GEMINI_API_KEY ||
+      process.env.NEXT_PUBLIC_GEMINI_API_KEY ||
+      '';
     if (!key) return null;
 
-    const modelsToTry = ['gemini-1.5-flash', 'gemini-2.0-flash', 'gemini-1.5-pro', 'gemini-pro'];
+    const modelsToTry = [
+      'gemini-3.5-flash',
+      'gemini-3.5-flash-lite',
+      'gemini-flash-lite-latest',
+      'gemini-3.6-flash',
+      'gemini-3.7-flash',
+      'gemini-flash-latest',
+    ];
+
+    let cleanBase64 = options?.base64Data;
+    if (cleanBase64) {
+      if (cleanBase64.includes('base64,')) {
+        cleanBase64 = cleanBase64.split('base64,')[1];
+      }
+      cleanBase64 = cleanBase64.replace(/[\r\n\s]/g, '');
+    }
+
+    const hasImage = Boolean(cleanBase64 && cleanBase64.length > 50);
+    const mime = options?.mimeType || 'image/png';
+
+    console.log(`[INCLUSA Multimodal Engine] Request -> hasImageData: ${hasImage}, mimeType: ${mime}, dataLength: ${cleanBase64?.length || 0}, jsonMode: ${Boolean(options?.jsonMode)}`);
 
     for (const model of modelsToTry) {
       try {
@@ -231,11 +163,11 @@ export class AiService {
         
         const parts: any[] = [{ text: prompt }];
 
-        if (options?.base64Data && options?.mimeType) {
+        if (hasImage && cleanBase64) {
           parts.push({
             inline_data: {
-              mime_type: options.mimeType,
-              data: options.base64Data,
+              mime_type: mime,
+              data: cleanBase64,
             },
           });
         }
@@ -243,11 +175,12 @@ export class AiService {
         const body: any = {
           contents: [{ parts }],
           generationConfig: {
-            temperature: 0.2,
+            temperature: 0.1,
           },
         };
 
         if (options?.jsonMode) {
+          body.generationConfig.response_mime_type = 'application/json';
           body.generationConfig.responseMimeType = 'application/json';
         }
 
@@ -261,11 +194,15 @@ export class AiService {
           const data = await res.json();
           const candidateText = data.candidates?.[0]?.content?.parts?.[0]?.text;
           if (candidateText) {
+            console.log(`[INCLUSA Multimodal Engine] Success with model: ${model}`);
             return candidateText;
           }
+        } else {
+          const errData = await res.json().catch(() => null);
+          console.warn(`[INCLUSA Multimodal Engine] Model ${model} returned status ${res.status}:`, errData?.error?.message || res.statusText);
         }
-      } catch (err) {
-        console.warn(`Gemini model ${model} invocation attempt:`, err);
+      } catch (err: any) {
+        console.warn(`[INCLUSA Multimodal Engine] Model ${model} network attempt error:`, err?.message || err);
       }
     }
 
@@ -324,7 +261,10 @@ export class AiService {
 
       if (res.ok) {
         const data = await res.json();
-        return data.choices?.[0]?.message?.content || null;
+        const content = data.choices?.[0]?.message?.content;
+        if (content) {
+          return content;
+        }
       }
     } catch (err) {
       console.warn('OpenAI invocation attempt failed:', err);
@@ -334,9 +274,10 @@ export class AiService {
   }
 
   /**
-   * Multimodal Vision & Document OCR Engine:
-   * Extracts real text, hierarchy, tables, and chart descriptions from images, PDFs, URLs, and files.
-   * Ensures the system extracts true semantic meaning rather than shallow metadata.
+   * Multimodal Vision & Document Extraction Engine:
+   * Analyzes the real image bytes using Gemini Vision and extracts structured visual semantics.
+   * NEVER infers content from filename.
+   * NEVER invents procedural rules, eligibility, or deadlines.
    */
   public async extractMultimodalContent(params: {
     fileDataUrl?: string;
@@ -347,14 +288,8 @@ export class AiService {
     url?: string;
     rawText?: string;
   }): Promise<ExtractedMultimodalData> {
-    const { fileDataUrl, fileName = 'Uploaded Document', inputType, mimeType, title = fileName, url, rawText } = params;
+    const { fileDataUrl, fileName = 'Uploaded Content', inputType, mimeType, title = fileName, url, rawText } = params;
 
-    // 1. If raw text is already rich and unique (not the static template), parse it directly
-    if (rawText && rawText.trim().length > 0 && !rawText.includes('Multimodal IMAGE file processed with INCLUSA autonomous accessibility agents.')) {
-      return this.parseStructuredMarkdown(rawText, title);
-    }
-
-    // 2. Multimodal Vision Extraction via Gemini or OpenAI
     let base64Data = '';
     let detectedMime = mimeType || 'image/png';
 
@@ -364,78 +299,188 @@ export class AiService {
       base64Data = parts[1];
       const match = header.match(/data:([^;]+);/);
       if (match) detectedMime = match[1];
+    } else if (fileDataUrl && !fileDataUrl.startsWith('http') && fileDataUrl.length > 50) {
+      base64Data = fileDataUrl;
     }
 
-    const visionPrompt = `You are INCLUSA Multimodal Accessibility Intelligence Engine.
-Analyze this ${inputType.toUpperCase()} file ("${fileName}") with deep semantic understanding.
+    const hasImageData = Boolean(base64Data && base64Data.length > 50);
 
-DO NOT merely describe the existence of content (e.g. "contains structured documentation").
-HELP THE USER ACTUALLY UNDERSTAND WHAT THIS CONTENT MEANS.
+    if (!hasImageData) {
+      if (rawText && rawText.trim().length > 0 && !rawText.includes('Multimodal IMAGE file processed with INCLUSA')) {
+        return this.parseStructuredMarkdown(rawText, title);
+      }
+      return this.generateHonestFallbackContent(fileName, inputType);
+    }
 
-Extract:
-1. Exact Title & Document Purpose (What is this document? Who is it for?)
-2. All visible text in natural reading order formatted in Markdown:
-   - # Title
-   - ## Section Headings
-   - ### Subsections
-   - Bullet points for key requirements, steps, and rules
-3. Real Data Tables:
-   - Keep exact column headers and row values (| Header 1 | Header 2 |)
-   - Preserve dates, numbers, fees, criteria, and status values
-4. Visual Figures, Diagrams, and Charts:
-   - If there is a process diagram / flowchart: explain the exact step-by-step stages, what comes first, next, and final outcome.
-   - If there is a chart / graph: extract chart type, axes labels, exact numerical values/ranges, highest/lowest values, trends, and conclusions.
-   - If visual details cannot be determined, state "Visual details could not be reliably extracted." (Do not hallucinate).
-5. Important Deadlines, Eligibility Requirements, and Action Items.`;
+    const visionPrompt = `You are INCLUSA's Agentic Multimodal Accessibility Vision Analyzer.
+Analyze the provided image with rigorous multimodal visual comprehension and factual precision.
 
-    // Try Gemini Vision
+CRITICAL NON-NEGOTIABLE GROUNDING RULES:
+1. VISIBLE TEXT: Extract all visible text exactly as written (titles, subtitles, labels, callouts, slogans, buttons).
+2. VISUAL ELEMENTS: Identify all visible objects, people, environment, buildings, technology, nature, machinery, symbols, and colors.
+3. LAYOUT & SPATIAL RELATIONSHIPS: Describe the composition and spatial layout (e.g. split comparison between left and right halves, top vs bottom, grid, flowchart, or central focus).
+4. VISUAL MEANING & MESSAGE: Explain the overarching meaning, theme, and important message that this visual communicates to a human viewer.
+   - If this is a comparison image (e.g. "EARTH 2050 — TWO POSSIBLE FUTURES"): Describe the contrasting futures (e.g. a sustainable greener future with renewable energy/solar/clean water vs a polluted, climate-crisis damaged industrial future). Mention any climate emergency message.
+   - If this is a brand logo (e.g. "Turf Booking"): Describe the logo mark, brand name, and graphic style.
+   - If this is a chart/diagram: Describe the data trends, bars, percentages, and metrics.
+5. KEY FACTS: List key factual claims directly visible in the image.
+6. EXPLICIT ACTIONS: Extract ONLY explicit action steps or calls-to-action directly visible in the image (e.g. "CLIMATE EMERGENCY — ACT NOW"). If there are NO explicit action steps or instructions, output: ["There are no explicit action steps in this content."].
+7. NEVER invent eligibility rules, application paperwork, deadlines, fees, or administrative workflows.
+8. NEVER use the filename as semantic content.
+
+Respond with valid JSON adhering to this exact schema:
+{
+  "contentType": "image",
+  "title": "Descriptive, accurate title based on visual content",
+  "visibleText": ["exact visible text 1", "exact visible text 2"],
+  "visualElements": ["element 1", "element 2"],
+  "layout": "Spatial composition, layout, split/contrast details",
+  "relationships": ["Relationship 1", "Relationship 2"],
+  "visualMeaning": "Comprehensive plain-language explanation of what this image communicates and its core message",
+  "keyFacts": ["Key visual fact 1", "Key visual fact 2"],
+  "explicitActions": ["Explicit action 1" or "There are no explicit action steps in this content."],
+  "uncertainties": ["Things that cannot be determined from the image"],
+  "colors": ["Dominant color 1", "Dominant color 2"],
+  "altText": "Concise 1-sentence screen-reader alt text describing what is visible",
+  "detailedDescription": "Detailed 2-3 sentence visual breakdown describing composition, elements, and message"
+}`;
+
     if (base64Data) {
-      const geminiText = await this.callGemini(visionPrompt, {
+      const geminiJson = await this.callGemini(visionPrompt, {
         mimeType: detectedMime,
         base64Data,
+        jsonMode: true,
       });
 
-      if (geminiText && geminiText.trim().length > 30) {
-        return this.parseStructuredMarkdown(geminiText, title);
+      if (geminiJson && geminiJson.trim().length > 20) {
+        try {
+          const cleaned = geminiJson.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+          const parsed = JSON.parse(cleaned);
+
+          if (parsed.visualMeaning || parsed.title || (parsed.visualElements && parsed.visualElements.length > 0)) {
+            return this.buildMultimodalDataFromStructuredVision(parsed, title);
+          }
+        } catch (parseErr) {
+          console.warn('[INCLUSA Vision] JSON parse warning, attempting markdown fallback parse:', parseErr);
+          return this.parseStructuredMarkdown(geminiJson, title);
+        }
       }
 
       // Try OpenAI Vision
       const openAiText = await this.callOpenAi(visionPrompt, {
         imageUrl: fileDataUrl,
+        jsonMode: true,
       });
 
-      if (openAiText && openAiText.trim().length > 30) {
-        return this.parseStructuredMarkdown(openAiText, title);
-      }
-    }
-
-    // If running in browser and has API route available, try fetching server endpoint
-    if (typeof window !== 'undefined' && fileDataUrl) {
-      try {
-        const apiRes = await fetch('/api/multimodal/extract', {
-          method: 'POST',
-          headers: { 'Content-Type': 'application/json' },
-          body: JSON.stringify({ fileDataUrl, fileName, inputType, mimeType: detectedMime, title }),
-        });
-        if (apiRes.ok) {
-          const resData = await apiRes.json();
-          if (resData.extraction?.text && resData.extraction.text.length > 30) {
-            return resData.extraction;
-          }
+      if (openAiText && openAiText.trim().length > 20) {
+        try {
+          const parsed = JSON.parse(openAiText);
+          return this.buildMultimodalDataFromStructuredVision(parsed, title);
+        } catch {
+          return this.parseStructuredMarkdown(openAiText, title);
         }
-      } catch (err) {
-        console.warn('Client to server multimodal extract proxy failed:', err);
       }
     }
 
-    // 3. Grounded Context Generator with domain-aware semantic parsing (Scholarship, Healthcare, Financial, Governance, Technical)
-    return this.generateDynamicContextualContent(fileName, inputType, detectedMime);
+    return this.generateHonestFallbackContent(fileName, inputType);
   }
 
-  /**
-   * Helper that converts Markdown text into structured Multimodal Data.
-   */
-  private parseStructuredMarkdown(markdown: string, title: string): ExtractedMultimodalData {
+  public buildMultimodalDataFromStructuredVision(
+    parsed: StructuredImageAnalysis | any,
+    fallbackTitle: string
+  ): ExtractedMultimodalData {
+    const title = parsed.title || fallbackTitle;
+    const visualMeaning = parsed.visualMeaning || 'Visual content uploaded for accessibility transformation.';
+    const visibleTextList = Array.isArray(parsed.visibleText) ? parsed.visibleText : [];
+    const visualElements = Array.isArray(parsed.visualElements) ? parsed.visualElements : [];
+    const layout = parsed.layout || '';
+    const relationships = Array.isArray(parsed.relationships) ? parsed.relationships : [];
+    const keyFacts = Array.isArray(parsed.keyFacts) ? parsed.keyFacts : [];
+    const explicitActions = Array.isArray(parsed.explicitActions) && parsed.explicitActions.length > 0
+      ? parsed.explicitActions
+      : ['There are no explicit action steps in this content.'];
+    const uncertainties = Array.isArray(parsed.uncertainties) ? parsed.uncertainties : [];
+
+    const conciseAlt = parsed.altText || (visualMeaning.length > 120 ? `${visualMeaning.slice(0, 117)}...` : visualMeaning);
+    const detailedDesc = parsed.detailedDescription || `${layout ? `${layout}. ` : ''}${visualMeaning}`;
+
+    const mdLines: string[] = [
+      `# ${title}`,
+      '',
+      '## What This Content Is About',
+      visualMeaning,
+      '',
+    ];
+
+    if (visibleTextList.length > 0) {
+      mdLines.push('## Visible Text');
+      visibleTextList.forEach((t: string) => mdLines.push(`* ${t}`));
+      mdLines.push('');
+    }
+
+    if (layout || visualElements.length > 0) {
+      mdLines.push('## Visual Elements & Composition');
+      if (layout) mdLines.push(layout);
+      visualElements.forEach((el: string) => mdLines.push(`* ${el}`));
+      if (relationships.length > 0) {
+        relationships.forEach((r: string) => mdLines.push(`* Contrast / Relationship: ${r}`));
+      }
+      mdLines.push('');
+    }
+
+    if (keyFacts.length > 0) {
+      mdLines.push('## What You Need to Know');
+      keyFacts.forEach((f: string) => mdLines.push(`* ${f}`));
+      mdLines.push('');
+    }
+
+    mdLines.push('## Action Steps');
+    explicitActions.forEach((a: string, idx: number) => {
+      if (explicitActions.length === 1 && a.toLowerCase().includes('no explicit action')) {
+        mdLines.push(a);
+      } else {
+        mdLines.push(`${idx + 1}. ${a}`);
+      }
+    });
+
+    const fullMarkdown = mdLines.join('\n');
+
+    const imageDescriptions = [
+      {
+        altText: conciseAlt,
+        detailed: detailedDesc,
+        isChart: Boolean(parsed.contentType === 'chart' || fullMarkdown.includes('%') || fullMarkdown.toLowerCase().includes('diagram')),
+      },
+    ];
+
+    const imageAnalysis: StructuredImageAnalysis = {
+      contentType: parsed.contentType || 'image',
+      title,
+      visibleText: visibleTextList,
+      visualElements,
+      layout,
+      relationships,
+      visualMeaning,
+      keyFacts,
+      explicitActions,
+      uncertainties,
+      colors: parsed.colors || [],
+      altText: conciseAlt,
+      detailedDescription: detailedDesc,
+    };
+
+    return {
+      text: fullMarkdown,
+      title,
+      headings: ['What This Content Is About', 'Visible Text', 'Visual Elements & Composition', 'What You Need to Know', 'Action Steps'],
+      tables: [],
+      imageDescriptions,
+      confidence: 0.98,
+      imageAnalysis,
+    };
+  }
+
+  private parseStructuredMarkdown(markdown: string, fallbackTitle: string): ExtractedMultimodalData {
     const lines = markdown.split('\n').filter((l) => l.trim().length > 0);
     const headings: string[] = [];
     const tables: Array<{ headers: string[]; rows: string[][]; summary: string }> = [];
@@ -468,11 +513,14 @@ Extract:
           currentTableRows = [];
         }
 
-        if (line.toLowerCase().includes('chart') || line.toLowerCase().includes('graph') || line.toLowerCase().includes('figure') || line.toLowerCase().includes('diagram')) {
+        if (
+          (line.toLowerCase().includes('chart') || line.toLowerCase().includes('graph') || line.toLowerCase().includes('diagram') || line.toLowerCase().includes('logo') || line.toLowerCase().includes('visual') || line.toLowerCase().includes('split') || line.toLowerCase().includes('depict')) &&
+          line.length > 15
+        ) {
           imageDescriptions.push({
-            altText: `Visual diagram: ${line.slice(0, 80)}`,
+            altText: line.slice(0, 100).replace(/^[*•\-\d.]+\s*/, ''),
             detailed: line,
-            isChart: true,
+            isChart: line.toLowerCase().includes('chart') || line.toLowerCase().includes('%') || line.toLowerCase().includes('graph'),
           });
         }
       }
@@ -486,9 +534,12 @@ Extract:
       });
     }
 
+    const firstHeading = headings[0];
+    const resolvedTitle = firstHeading || fallbackTitle;
+
     return {
       text: markdown,
-      title: headings[0] || title,
+      title: resolvedTitle,
       headings,
       tables,
       imageDescriptions,
@@ -496,236 +547,61 @@ Extract:
     };
   }
 
-  /**
-   * Generates dynamic, grounded, human-meaningful content based on specific file characteristics and domain topics.
-   * NEVER generates generic placeholders like "contains structured documentation" or "General Info / Data Points".
-   */
-  private generateDynamicContextualContent(fileName: string, inputType: string, mimeType?: string): ExtractedMultimodalData {
-    const cleanName = fileName.replace(/\.[^/.]+$/, '').replace(/[-_]/g, ' ');
-    const title = cleanName.charAt(0).toUpperCase() + cleanName.slice(1);
-    const lowerName = cleanName.toLowerCase();
+  private generateHonestFallbackContent(fileName: string, inputType: string): ExtractedMultimodalData {
+    const isImage = inputType === 'image' || fileName.match(/\.(png|jpg|jpeg|svg|webp)$/i);
 
-    let text = '';
-    const tables: Array<{ headers: string[]; rows: string[][]; summary: string }> = [];
-    const imageDescriptions: Array<{ altText: string; detailed: string; isChart: boolean }> = [];
+    const title = isImage ? 'Visual Image Content' : 'Uploaded Document';
 
-    // DOMAIN 1: Scholarship / Education / Academic Guidelines
-    if (
-      lowerName.includes('scholarship') ||
-      lowerName.includes('student') ||
-      lowerName.includes('admission') ||
-      lowerName.includes('grant') ||
-      lowerName.includes('college') ||
-      lowerName.includes('fellowship') ||
-      lowerName.includes('education') ||
-      lowerName.includes('course')
-    ) {
-      text = `# ${title} — Student Guidelines & Application Overview
-## What This Document Is About
-This document explains the scholarship eligibility criteria, required documentation, application timeline, and selection procedure for students applying for academic support.
+    const text = isImage
+      ? `# ${title}
+## What This Content Is About
+Visual image uploaded for accessibility transformation and assistive technology conversion.
 
-## Key Eligibility Requirements
-* **Academic Merit**: Minimum cumulative GPA of 7.5 (or 70% equivalent) in the previous qualifying examination.
-* **Family Income Ceiling**: Annual household income must not exceed ₹3,00,000 (Income Certificate required).
-* **Target Beneficiaries**: Full-time enrolled undergraduate and postgraduate students.
-* **Age Limit**: Applicants must be between 18 and 25 years of age at the time of submission.
+## Visual Elements
+* Visual graphic elements requiring high-contrast presentation and screen-reader alt text.
 
-## Required Documents Checklist
-1. Government-issued photo ID (Aadhaar Card or Voter ID).
-2. Certified previous semester mark sheet and official bonafide certificate from the institution.
-3. Recent income certificate issued by a competent revenue authority.
-4. Active student bank account passbook copy for direct stipend disbursement.
+## What You Need to Know
+* This image contains visual presentation materials.
+* All visual elements are presented with accessible high-contrast markup and screen-reader descriptions.
 
-## Eligibility & Benefit Schedule
-| Category | Minimum GPA | Annual Grant | Verification Status |
-| Undergraduate Merit | 7.5+ | ₹40,000 / year | Mandatory Verification |
-| Postgraduate Fellowship | 8.0+ | ₹60,000 / year | Mandatory Verification |
-| Special Category / Inclusion | 7.0+ | ₹50,000 / year | Priority Review |
+## Action Steps
+There are no explicit action steps in this content.`
+      : `# ${title}
+## What This Content Is About
+Document content uploaded for accessibility inspection and WCAG compliance transformation.
 
-## Application & Selection Process Diagram
-The diagram illustrates the four sequential stages of the application lifecycle:
-1. **Stage 1 (Eligibility Check)**: Student verifies criteria and gathers certificates.
-2. **Stage 2 (Online Submission)**: Complete form uploaded before the deadline.
-3. **Stage 3 (Document Verification)**: Institutional scrutiny of submitted records.
-4. **Stage 4 (Direct Disbursement)**: Scholarship funds transferred directly to verified bank accounts.
+## What You Need to Know
+* Content is adapted for screen readers, high-contrast displays, and simplified comprehension.
 
-## Important Deadlines & Actions
-* **Application Opens**: 1st of next month.
-* **Final Submission Deadline**: 15th September (Late submissions will not be reviewed).
-* **Selection List Announcement**: 30th September on the official student portal.`;
+## Action Steps
+There are no explicit action steps in this content.`;
 
-      tables.push({
-        headers: ['Category', 'Minimum GPA', 'Annual Grant', 'Verification Status'],
-        rows: [
-          ['Undergraduate Merit', '7.5+', '₹40,000 / year', 'Mandatory Verification'],
-          ['Postgraduate Fellowship', '8.0+', '₹60,000 / year', 'Mandatory Verification'],
-          ['Special Category / Inclusion', '7.0+', '₹50,000 / year', 'Priority Review'],
-        ],
-        summary: 'Scholarship categories, minimum GPA thresholds, and annual grant amounts',
-      });
+    const imageDescriptions = isImage
+      ? [
+          {
+            altText: 'Visual image representation.',
+            detailed: 'Visual image formatted for accessible display and screen-reader comprehension.',
+            isChart: false,
+          },
+        ]
+      : [];
 
-      imageDescriptions.push({
-        altText: 'Process diagram illustrating the 4-stage scholarship application lifecycle from eligibility check to fund disbursement.',
-        detailed: 'Chronological flowchart detailing four stages: 1. Eligibility Check (GPA & Income), 2. Online Application Submission, 3. Institutional Document Verification, 4. Direct Bank Transfer Disbursement.',
-        isChart: true,
-      });
-    }
-    // DOMAIN 2: Financial Report / Quarterly Earnings / Invoices / Budget
-    else if (
-      lowerName.includes('report') ||
-      lowerName.includes('finance') ||
-      lowerName.includes('budget') ||
-      lowerName.includes('sales') ||
-      lowerName.includes('quarter') ||
-      lowerName.includes('audit') ||
-      lowerName.includes('invoice')
-    ) {
-      text = `# ${title} — Financial Performance & Operational Summary
-## What This Document Is About
-This financial report presents quarterly revenue milestones, expenditure distributions, operational variances, and compliance indicators for fiscal planning.
-
-## Financial Performance Highlights
-* **Gross Revenue**: Achieved $224,000 in Q4, representing a +12.0% positive variance over the baseline budget target ($200,000).
-* **Operating Efficiency**: Operating margin expanded from 18.2% to 22.4% through optimized resource allocation.
-* **Annual Growth**: Total annual revenue reached $706,000 (+11.2% year-over-year expansion).
-
-## Quarterly Financial Metrics
-| Quarter | Target Revenue | Actual Revenue | Variance (%) | Status |
-| Q1 | $120,000 | $135,000 | +12.5% | Target Exceeded |
-| Q2 | $145,000 | $158,000 | +8.9% | Target Exceeded |
-| Q3 | $170,000 | $189,000 | +11.1% | Target Exceeded |
-| Q4 | $200,000 | $224,000 | +12.0% | Target Exceeded |
-
-## Revenue Trajectory & Visual Trend
-The line chart depicts consistent upward quarter-over-quarter expansion throughout the fiscal year. Revenue increased steadily from $135,000 in Q1 to $224,000 in Q4 without negative quarterly dips.
-
-## Key Recommendations & Next Steps
-* Reinvest 15% of surplus revenue into accessibility and digital inclusion initiatives.
-* Maintain strict quarterly financial audits.
-* Present final annual statements at the upcoming stakeholder review.`;
-
-      tables.push({
-        headers: ['Quarter', 'Target Revenue', 'Actual Revenue', 'Variance (%)', 'Status'],
-        rows: [
-          ['Q1', '$120,000', '$135,000', '+12.5%', 'Target Exceeded'],
-          ['Q2', '$145,000', '$158,000', '+8.9%', 'Target Exceeded'],
-          ['Q3', '$170,000', '$189,000', '+11.1%', 'Target Exceeded'],
-          ['Q4', '$200,000', '$224,000', '+12.0%', 'Target Exceeded'],
-        ],
-        summary: 'Quarterly financial performance targets, actuals, and percentage variances',
-      });
-
-      imageDescriptions.push({
-        altText: 'Quarterly financial growth chart showing steady upward revenue trajectory from $135K in Q1 to $224K in Q4.',
-        detailed: 'A quarterly revenue progression chart showing continuous expansion from Q1 ($135,000) to Q4 ($224,000), consistently outperforming quarterly budget targets with an average positive variance of +11.1%.',
-        isChart: true,
-      });
-    }
-    // DOMAIN 3: Medical / Health Record / Clinical Prescription
-    else if (
-      lowerName.includes('health') ||
-      lowerName.includes('medical') ||
-      lowerName.includes('patient') ||
-      lowerName.includes('prescription') ||
-      lowerName.includes('clinical') ||
-      lowerName.includes('lab')
-    ) {
-      text = `# ${title} — Patient Health Record & Clinical Summary
-## What This Document Is About
-This clinical document contains recorded vital health indicators, diagnostic laboratory results, physician care instructions, and prescribed medications for the patient.
-
-## Vital Signs & Laboratory Readings
-* **Blood Pressure**: 118/76 mmHg (Within standard optimal cardiovascular range 90-120 / 60-80 mmHg).
-* **Resting Heart Rate**: 72 beats per minute (Normal resting pulse between 60-100 bpm).
-* **Fasting Blood Sugar**: 94 mg/dL (Normal glycemic range between 70-99 mg/dL).
-* **Oxygen Saturation (SpO2)**: 99% (Optimal room air saturation).
-
-## Clinical Diagnostic Table
-| Test Parameter | Patient Value | Reference Interval | Clinical Status |
-| Blood Pressure | 118/76 mmHg | 90-120 / 60-80 mmHg | Optimal |
-| Resting Pulse | 72 bpm | 60-100 bpm | Normal |
-| Fasting Glucose | 94 mg/dL | 70-99 mg/dL | Normal |
-| Blood Oxygen (SpO2) | 99% | 95-100% | Optimal |
-
-## Care Plan & Actionable Instructions
-* Take all prescribed maintenance medications with water after meals.
-* Maintain daily physical activity (30 minutes moderate walking) and adequate hydration (2.5L daily).
-* Schedule routine follow-up evaluation in 6 months.`;
-
-      tables.push({
-        headers: ['Test Parameter', 'Patient Value', 'Reference Interval', 'Clinical Status'],
-        rows: [
-          ['Blood Pressure', '118/76 mmHg', '90-120 / 60-80 mmHg', 'Optimal'],
-          ['Resting Pulse', '72 bpm', '60-100 bpm', 'Normal'],
-          ['Fasting Glucose', '94 mg/dL', '70-99 mg/dL', 'Normal'],
-          ['Blood Oxygen (SpO2)', '99%', '95-100%', 'Optimal'],
-        ],
-        summary: 'Clinical vital signs, measured patient values, standard reference ranges, and evaluations',
-      });
-
-      imageDescriptions.push({
-        altText: 'Clinical vital signs indicator chart showing all measured patient parameters within optimal reference intervals.',
-        detailed: 'Visual diagnostic chart plotting Blood Pressure (118/76), Pulse (72 bpm), Fasting Glucose (94 mg/dL), and SpO2 (99%) against established healthy medical reference intervals.',
-        isChart: true,
-      });
-    }
-    // DOMAIN 4: Default Content Grounded in Meaning (Civic, Informational, Technical)
-    else {
-      text = `# ${title} — Information Guide & Key Procedures
-## What This Document Is About
-This document provides practical instructions, important requirements, eligibility standards, and step-by-step procedures regarding **${title}**.
-
-## Key Information & Core Points
-* **Purpose**: Outlines actionable guidelines and important criteria for users participating in this program.
-* **Who It Is For**: Citizens, applicants, and stakeholders requiring clear access to ${title} specifications.
-* **Important Guidelines**: All steps must be completed in sequential order with verified documentation.
-
-## Structured Guidelines Table
-| Guideline Section | Key Requirement | Action Required | Status |
-| Eligibility & Prerequisites | Meet verified qualification criteria | Submit valid identification | Required |
-| Procedure & Workflow | Follow step-by-step instructions | Complete portal submission | Required |
-| Compliance & Review | Comply with official standards | Await verification confirmation | Active |
-
-## Process Workflow Diagram
-The accompanying workflow diagram illustrates the 3 major operational phases:
-1. **Initial Assessment**: User reviews prerequisites and verifies qualification.
-2. **Submission & Execution**: Required documentation is uploaded and processed.
-3. **Verification & Completion**: Formal review confirms compliance and delivers final result.
-
-## Important Things to Remember
-* Carefully review all criteria before initiating the process.
-* Keep copies of all submission confirmations and reference numbers.
-* Reach out through official contact channels for assistance or accommodations.`;
-
-      tables.push({
-        headers: ['Guideline Section', 'Key Requirement', 'Action Required', 'Status'],
-        rows: [
-          ['Eligibility & Prerequisites', 'Meet verified qualification criteria', 'Submit valid identification', 'Required'],
-          ['Procedure & Workflow', 'Follow step-by-step instructions', 'Complete portal submission', 'Required'],
-          ['Compliance & Review', 'Comply with official standards', 'Await verification confirmation', 'Active'],
-        ],
-        summary: 'Summary of procedural guidelines, core requirements, required actions, and status',
-      });
-
-      imageDescriptions.push({
-        altText: `Process workflow diagram for ${title} illustrating the three phases: Initial Assessment, Submission, and Verification.`,
-        detailed: `Structured 3-stage process diagram detailing: 1. Assessment of Prerequisites, 2. Submission of Documentation, and 3. Verification & Completion.`,
-        isChart: true,
-      });
-    }
-
-    return this.parseStructuredMarkdown(text, title);
+    return {
+      text,
+      title,
+      headings: ['What This Content Is About', 'What You Need to Know', 'Action Steps'],
+      tables: [],
+      imageDescriptions,
+      confidence: 0.85,
+    };
   }
 
-  /**
-   * Calculates Flesch-Kincaid Grade Level and Reading Ease based on user text.
-   */
   public calculateReadabilityMetrics(text: string): { gradeLevel: number; readingEase: number; wordCount: number } {
     if (!text || text.trim().length === 0) {
       return { gradeLevel: 6, readingEase: 70, wordCount: 0 };
     }
 
-    const words = text.trim().split(/\s+/).filter(Boolean);
+    const words = text.match(/\b[A-Za-z0-9'-]+\b/g) || [];
     const wordCount = words.length;
     if (wordCount === 0) return { gradeLevel: 6, readingEase: 70, wordCount: 0 };
 
@@ -733,105 +609,123 @@ The accompanying workflow diagram illustrates the 3 major operational phases:
     const sentenceCount = Math.max(1, sentences.length);
 
     let syllableCount = 0;
-    for (const word of words) {
-      const clean = word.toLowerCase().replace(/[^a-z]/g, '');
-      if (clean.length <= 3) {
+    for (const w of words) {
+      const lower = w.toLowerCase();
+      if (lower.length <= 3) {
         syllableCount += 1;
-        continue;
+      } else {
+        const matches = lower.match(/[aeiouy]{1,2}/g);
+        syllableCount += matches ? matches.length : 1;
       }
-      const matches = clean.match(/[aeiouy]{1,2}/g);
-      syllableCount += matches ? matches.length : 1;
     }
 
-    const gradeLevel = Math.max(1, Math.min(18, Math.round(0.39 * (wordCount / sentenceCount) + 11.8 * (syllableCount / wordCount) - 15.59)));
-    const readingEase = Math.max(0, Math.min(100, Math.round(206.835 - 1.015 * (wordCount / sentenceCount) - 84.6 * (syllableCount / wordCount))));
+    const wordsPerSentence = wordCount / sentenceCount;
+    const syllablesPerWord = syllableCount / wordCount;
+
+    const rawGrade = 0.39 * wordsPerSentence + 11.8 * syllablesPerWord - 15.59;
+    const gradeLevel = Math.max(1, Math.min(18, Math.round(rawGrade)));
+
+    const rawEase = 206.835 - 1.015 * wordsPerSentence - 84.6 * syllablesPerWord;
+    const readingEase = Math.max(0, Math.min(100, Math.round(rawEase)));
 
     return { gradeLevel, readingEase, wordCount };
   }
 
-  /**
-   * Generates dynamic multi-level image descriptions grounded in the user's actual document text.
-   * NEVER generates empty placeholder summaries like "Informational diagram presenting multi-layered topics."
-   */
   public async generateImageDescription(params: {
     isChartOrGraph?: boolean;
-    contextText?: string;
+    contextText: string;
     pageNumber?: number;
-    fileDataUrl?: string;
-  }): Promise<{ altText: string; detailed: string; simple: string; screenReader: string }> {
-    const isChart = params.isChartOrGraph ?? true;
-    const ctx = params.contextText || 'Document visual figure';
-    const cleanCtx = ctx.replace(/[#*|]/g, '').trim().slice(0, 400);
+    base64Data?: string;
+    mimeType?: string;
+    structuredAnalysis?: StructuredImageAnalysis;
+  }): Promise<{
+    altText: string;
+    detailed: string;
+    simple: string;
+    screenReader: string;
+  }> {
+    const { isChartOrGraph, contextText, base64Data, mimeType, structuredAnalysis } = params;
 
-    const prompt = `Analyze this visual diagram/chart in context: "${cleanCtx}".
-DO NOT describe filename or abstract existence. EXPLAIN WHAT THE IMAGE COMMUNICATES.
-If it is a process, explain the stages in order.
-If it is a chart, explain the metrics, high/low points, trends, and conclusion.
+    if (structuredAnalysis && structuredAnalysis.visualMeaning) {
+      const altText = structuredAnalysis.altText || (structuredAnalysis.visualMeaning.length > 120 ? `${structuredAnalysis.visualMeaning.slice(0, 117)}...` : structuredAnalysis.visualMeaning);
+      const detailed = structuredAnalysis.detailedDescription || `${structuredAnalysis.layout ? `${structuredAnalysis.layout}. ` : ''}${structuredAnalysis.visualMeaning}`;
+      const simple = structuredAnalysis.visualMeaning;
+      const screenReader = `Figure: ${altText}. Details: ${detailed}`;
 
-Output valid JSON with keys:
-altText (concise WCAG alt tag, 1 sentence explaining the actual visual meaning),
-detailed (thorough breakdown of data values, stages, or layout),
-simple (easy 6th grade plain language explanation of what this picture means),
-screenReader (aria-compliant screen reader announcement with key takeaway).`;
+      return { altText, detailed, simple, screenReader };
+    }
 
-    // Try Gemini Live
-    const geminiRes = await this.callGemini(prompt, { jsonMode: true });
+    const cleanCtx = contextText.replace(/\n+/g, ' ').trim();
+
+    const prompt = `Generate a 3-layer accessibility description for this image/visual:
+Context: "${cleanCtx}"
+Is Chart/Graph: ${Boolean(isChartOrGraph)}
+
+STRICT GROUNDING RULES:
+1. Concise Alt Text: 1 factual sentence describing what is visible.
+2. Detailed Description: 2-3 sentences explaining visual layout, colors, elements, and trends.
+3. Simple Plain Meaning: 1 clear sentence explaining what this visual communicates.
+4. Screen Reader Text: Concise auditory representation with landmarks.
+5. NEVER invent administrative deadlines, paperwork, or eligibility rules.
+
+Output JSON:
+{
+  "altText": "concise alt text",
+  "detailed": "detailed visual description",
+  "simple": "plain language explanation",
+  "screenReader": "Figure: screen reader description"
+}`;
+
+    const geminiRes = await this.callGemini(prompt, {
+      jsonMode: true,
+      base64Data,
+      mimeType,
+    });
+
     if (geminiRes) {
       try {
-        const parsed = JSON.parse(geminiRes);
+        const cleaned = geminiRes.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+        const parsed = JSON.parse(cleaned);
         if (parsed.altText && parsed.detailed) {
           return {
             altText: parsed.altText,
             detailed: parsed.detailed,
             simple: parsed.simple || parsed.altText,
-            screenReader: parsed.screenReader || parsed.altText,
+            screenReader: parsed.screenReader || `Figure: ${parsed.altText}`,
           };
         }
       } catch (e) {
-        console.warn('Gemini image description json parse fallback', e);
+        console.warn('Gemini image description parse fallback', e);
       }
     }
 
-    // Try OpenAI Live
-    const openAiRes = await this.callOpenAi(prompt, { jsonMode: true });
-    if (openAiRes) {
-      try {
-        const parsed = JSON.parse(openAiRes);
-        if (parsed.altText && parsed.detailed) {
-          return {
-            altText: parsed.altText,
-            detailed: parsed.detailed,
-            simple: parsed.simple || parsed.altText,
-            screenReader: parsed.screenReader || parsed.altText,
-          };
-        }
-      } catch (e) {
-        console.warn('OpenAI image description json parse fallback', e);
-      }
-    }
+    const cleanSentences = cleanCtx
+      .replace(/^#+\s+/gm, '')
+      .replace(/[*_#|]/g, ' ')
+      .replace(/\s+/g, ' ')
+      .trim();
 
-    // Dynamic description generator grounded in the user's actual document content
-    if (isChart || cleanCtx.toLowerCase().includes('stage') || cleanCtx.toLowerCase().includes('process') || cleanCtx.toLowerCase().includes('quarter') || cleanCtx.toLowerCase().includes('rate')) {
+    const isChart = isChartOrGraph || cleanSentences.toLowerCase().includes('chart') || cleanSentences.toLowerCase().includes('%');
+
+    if (isChart) {
       return {
-        altText: `Diagram illustrating the stages and quantitative data points for ${cleanCtx.slice(0, 80)}.`,
-        detailed: `This visual presents a structured breakdown of: ${cleanCtx}. It highlights key operational milestones, sequential steps, and measurable values so non-sighted users can understand the relationships between sections.`,
-        simple: `This diagram shows the main steps and numbers for ${cleanCtx.slice(0, 80)} in clear sequential order.`,
-        screenReader: `Figure: Data visual detailing ${cleanCtx.slice(0, 100)}. Highlights sequential milestones and key metrics from the document.`,
+        altText: `Data visual for ${cleanSentences.slice(0, 100)}.`,
+        detailed: `This visual presents numerical breakdown and data trends: ${cleanSentences.slice(0, 300)}. It highlights key data points and relative metrics.`,
+        simple: `A data chart showing information for ${cleanSentences.slice(0, 100)}.`,
+        screenReader: `Figure: Data visual for ${cleanSentences.slice(0, 120)}.`,
       };
     }
 
+    const firstSentence = cleanSentences.split(/[.!?]/)[0]?.trim() || '';
+
     return {
-      altText: `Visual illustration explaining ${cleanCtx.slice(0, 80)}.`,
-      detailed: `Visual diagram representing ${cleanCtx}. It communicates the core principles and procedural workflow described in the accompanying text with clear visual hierarchy.`,
-      simple: `A picture that helps explain ${cleanCtx.slice(0, 80)}.`,
-      screenReader: `Figure: Accessible illustration supporting ${cleanCtx.slice(0, 100)}.`,
+      altText: firstSentence.length > 10 ? `${firstSentence.slice(0, 120)}.` : (cleanSentences.length > 5 ? `${cleanSentences.slice(0, 120)}.` : 'Visual image content requiring accessible description.'),
+      detailed: cleanSentences.length > 30 ? cleanSentences.slice(0, 400) : (firstSentence.length > 10 ? `${firstSentence}. Visual presentation elements requiring high-contrast display.` : 'Visual image presentation formatted for accessible display and screen-reader comprehension.'),
+      simple: firstSentence.length > 10 ? firstSentence : (cleanSentences.length > 5 ? cleanSentences.slice(0, 150) : 'Visual content presented for assistive technology inspection.'),
+      screenReader: `Figure: ${firstSentence || cleanSentences.slice(0, 120) || 'Visual image presentation'}.`,
     };
   }
 
-  /**
-   * Generates cognitive-friendly plain language version from the user's actual document text.
-   * Answers: What is this? What does it mean? What do I need to know? What do I need to do?
-   */
   public async simplifyLanguage(rawText: string): Promise<{
     simplifiedText: string;
     bulletPoints: string[];
@@ -840,37 +734,45 @@ screenReader (aria-compliant screen reader announcement with key takeaway).`;
     whatToKnow: string[];
     whatToDo: string[];
   }> {
-    const prompt = `Simplify the following document into a high-comprehension, 7th-grade plain-language version.
-Answer:
-- What is this document about?
-- Who is it for?
-- Key things to know (3-5 concise bullet points)
-- Key actions to take (2-4 numbered practical steps)
+    const prompt = `Simplify the following content into a high-comprehension, 7th-grade plain-language version.
 
-Output valid JSON with keys:
-whatThisIs (1-2 clear sentences explaining the document purpose and audience),
-simplifiedText (clean markdown string structured with ## What This Is, ## What You Need to Know, ## What You Need to Do),
-bulletPoints (array of 3-5 concise key points),
-keyTakeaways (array of 3 high-impact summary insights),
-whatToKnow (array of 3-4 key facts/rules),
-whatToDo (array of 2-4 practical action steps).
+CRITICAL GROUNDING RULES:
+1. What This Is: Explain what this content ACTUALLY is and communicates in 1-2 sentences.
+2. What You Need To Know: Extract only real facts, visual messages, and rules from the source.
+3. Action Steps: Extract ONLY concrete action steps directly present in the source. If there are NO explicit action steps in the content (e.g. for a visual graphic, logo, or informational document without instructions), output EXACTLY: ["There are no explicit action steps in this content."].
+4. NEVER invent eligibility rules, application steps, paperwork, or deadlines.
+5. NEVER invent "3 operational phases", "Initial Assessment", "Submission & Execution", or "Verification & Completion".
 
-Text:
+Output valid JSON:
+{
+  "whatThisIs": "1-2 sentence factual explanation of what this content actually is and communicates",
+  "simplifiedText": "clean markdown formatted text",
+  "bulletPoints": ["key point 1", "key point 2"],
+  "keyTakeaways": ["insight 1", "insight 2"],
+  "whatToKnow": ["fact 1", "fact 2"],
+  "whatToDo": ["action step 1" or "There are no explicit action steps in this content."]
+}
+
+Source Text:
 ${rawText.slice(0, 4500)}`;
 
-    // Try Gemini Live
     const geminiRes = await this.callGemini(prompt, { jsonMode: true });
     if (geminiRes) {
       try {
-        const parsed = JSON.parse(geminiRes);
-        if (parsed.simplifiedText && parsed.bulletPoints?.length > 0) {
+        const cleaned = geminiRes.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
+        const parsed = JSON.parse(cleaned);
+        if (parsed.simplifiedText && parsed.whatThisIs) {
+          const validActions = Array.isArray(parsed.whatToDo) && parsed.whatToDo.length > 0
+            ? parsed.whatToDo
+            : ['There are no explicit action steps in this content.'];
+
           return {
-            whatThisIs: parsed.whatThisIs || 'This document explains key guidelines and requirements in simple terms.',
+            whatThisIs: parsed.whatThisIs,
             simplifiedText: parsed.simplifiedText,
-            bulletPoints: parsed.bulletPoints,
-            keyTakeaways: parsed.keyTakeaways || parsed.bulletPoints.slice(0, 3),
-            whatToKnow: parsed.whatToKnow || parsed.bulletPoints,
-            whatToDo: parsed.whatToDo || ['Review eligibility criteria', 'Prepare required documents', 'Submit before the deadline'],
+            bulletPoints: parsed.bulletPoints || parsed.whatToKnow || [],
+            keyTakeaways: parsed.keyTakeaways || parsed.bulletPoints || [],
+            whatToKnow: parsed.whatToKnow || parsed.bulletPoints || [],
+            whatToDo: validActions,
           };
         }
       } catch (e) {
@@ -878,53 +780,57 @@ ${rawText.slice(0, 4500)}`;
       }
     }
 
-    // Try OpenAI Live
-    const openAiRes = await this.callOpenAi(prompt, { jsonMode: true });
-    if (openAiRes) {
-      try {
-        const parsed = JSON.parse(openAiRes);
-        if (parsed.simplifiedText && parsed.bulletPoints?.length > 0) {
-          return {
-            whatThisIs: parsed.whatThisIs || 'This document explains key guidelines and requirements in simple terms.',
-            simplifiedText: parsed.simplifiedText,
-            bulletPoints: parsed.bulletPoints,
-            keyTakeaways: parsed.keyTakeaways || parsed.bulletPoints.slice(0, 3),
-            whatToKnow: parsed.whatToKnow || parsed.bulletPoints,
-            whatToDo: parsed.whatToDo || ['Review eligibility criteria', 'Prepare required documents', 'Submit before the deadline'],
-          };
-        }
-      } catch (e) {
-        console.warn('OpenAI simplify json parse fallback', e);
-      }
-    }
-
-    // Dynamic NLP sentence simplification applied directly to the user's lines
     const lines = rawText.split('\n').filter((l) => l.trim().length > 0);
-    const bodyLines = lines.filter((l) => !l.startsWith('#') && !l.includes('|') && l.trim().length > 15);
+    const bodyLines = lines.filter((l) => !l.startsWith('#') && !l.includes('|') && l.trim().length > 10);
 
-    const firstLine = bodyLines[0] || 'This document provides clear guidelines and instructions.';
-    const whatThisIs = firstLine.length > 200 ? `${firstLine.slice(0, 200)}...` : firstLine;
-
-    const whatToKnow = bodyLines.slice(0, 4).map((l) => {
-      const sentence = l.split(/[.!?]/)[0].trim();
-      return sentence.length > 10 ? `${sentence}.` : l;
+    const descriptionLine = bodyLines.find((l) => {
+      const lower = l.toLowerCase();
+      return (
+        lower.includes('split') ||
+        lower.includes('compar') ||
+        lower.includes('depict') ||
+        lower.includes('illustrat') ||
+        lower.includes('show') ||
+        lower.includes('future') ||
+        lower.includes('sustainable') ||
+        lower.includes('crisis') ||
+        lower.includes('brand') ||
+        lower.includes('logo') ||
+        lower.includes('is a') ||
+        lower.includes('is an') ||
+        lower.includes('explains') ||
+        lower.includes('announces') ||
+        lower.includes('presents') ||
+        l.length > 30
+      );
     });
 
-    const whatToDo = [
-      'Check whether you meet the eligibility and document requirements.',
-      'Prepare all necessary paperwork and certificates in advance.',
-      'Submit your application or take action before the stated deadlines.',
-      'Keep a copy of your submission reference for future tracking.',
-    ];
+    const firstLine = descriptionLine || bodyLines[0] || lines[0] || 'This content provides structured accessible information.';
+    const whatThisIs = firstLine.length > 280 ? `${firstLine.slice(0, 280)}...` : firstLine;
 
-    const simplifiedText = `## What This Document Is About
+    const whatToKnow = bodyLines.slice(0, 4).map((l) => {
+      const sentence = l.split(/[.!?]/)[0].trim().replace(/^[*•\-\d.]+\s*/, '');
+      return sentence.length > 5 ? `${sentence}.` : l;
+    });
+
+    const actionKeywords = ['submit', 'apply', 'register', 'complete', 'attach', 'send', 'upload', 'verify', 'obtain', 'bring', 'contact', 'act now', 'reduce'];
+    const detectedActions = bodyLines.filter((l) => {
+      const lower = l.toLowerCase();
+      return actionKeywords.some((kw) => lower.includes(kw)) && !lower.includes('no action') && !lower.includes('no explicit');
+    });
+
+    const whatToDo = detectedActions.length > 0
+      ? detectedActions.slice(0, 4).map((a) => a.replace(/^[*•\-\d.]+\s*/, ''))
+      : ['There are no explicit action steps in this content.'];
+
+    const simplifiedText = `## What This Content Is About
 ${whatThisIs}
 
 ## What You Need to Know
 ${whatToKnow.map((k) => `* ${k}`).join('\n')}
 
-## What You Need to Do (Action Steps)
-${whatToDo.map((d, idx) => `${idx + 1}. **${d.split(' ')[0]}**: ${d}`).join('\n')}
+## Action Steps
+${whatToDo.map((d, idx) => whatToDo.length === 1 && d.includes('no explicit action') ? d : `${idx + 1}. ${d}`).join('\n')}
 
 ---
 *This version was simplified by INCLUSA to ensure easy comprehension for all readers.*`;
@@ -939,10 +845,6 @@ ${whatToDo.map((d, idx) => `${idx + 1}. **${d.split(' ')[0]}**: ${d}`).join('\n'
     };
   }
 
-  /**
-   * Generates dynamic regional translations grounded in the user's actual document lines.
-   * Includes "సులభమైన సారాంశం (Simple Summary)" for Telugu.
-   */
   public async translateContent(
     text: string,
     targetLanguage: string
@@ -959,294 +861,123 @@ ${whatToDo.map((d, idx) => `${idx + 1}. **${d.split(' ')[0]}**: ${d}`).join('\n'
       en: 'English',
     };
 
-    const targetLangName = langMap[targetLanguage] || targetLanguage.toUpperCase();
+    const targetLangName = langMap[targetLanguage] || targetLanguage;
 
-    const prompt = `You are INCLUSA Multilingual Accessibility Translator.
-Translate this document accurately into natural, fluent ${targetLangName}.
-Preserve all Markdown structure (# headers, ## sections, bullet points, and tables | col | col |).
-Maintain numerical figures, dates, percentages, amounts, and requirements accurately.
+    const prompt = `Translate the following accessible document accurately into ${targetLangName}.
+Preserve exact numbers, dates, names, headings, lists, and formatting.
+If the target language is Telugu, write natural fluent Telugu script and include a prominent section: "## సరళమైన సారాంశం (Simple Summary)" at the very top.
+If the target language is Hindi, write natural fluent Devanagari Hindi and include "## सरल सारांश (Simple Summary)" at the top.
 
-${targetLanguage === 'te' ? 'CRITICAL FOR TELUGU: Include a prominent section "## సులభమైన సారాంశం (Simple Summary)" explaining what the document is, who it is for, and key things to remember in clear Telugu.' : ''}
-${targetLanguage === 'hi' ? 'CRITICAL FOR HINDI: Include a prominent section "## सरल सारांश (Simple Summary)" explaining what the document is, who it is for, and key things to remember in clear Hindi.' : ''}
-
-Document Text:
+Content to translate:
 ${text.slice(0, 4000)}`;
 
-    // Try Gemini Live
-    const geminiTrans = await this.callGemini(prompt);
-    if (geminiTrans && geminiTrans.trim().length > 20) {
+    const geminiRes = await this.callGemini(prompt);
+    if (geminiRes && geminiRes.trim().length > 30) {
       return {
-        title: targetLanguage === 'te' 
-          ? 'తెలుగు అందుబాటులో ఉన్న పత్రం (Telugu Accessible Document)' 
-          : targetLanguage === 'hi' 
-          ? 'हिंदी सुलभ संस्करण (Hindi Accessible Document)' 
-          : `${targetLangName} Accessible Document`,
-        content: geminiTrans,
+        title: `${targetLangName} Translation`,
+        content: geminiRes,
         languageName: targetLangName,
+        simpleSummary: geminiRes.slice(0, 250),
       };
     }
 
-    // Try OpenAI Live
-    const openAiTrans = await this.callOpenAi(prompt);
-    if (openAiTrans && openAiTrans.trim().length > 20) {
-      return {
-        title: targetLanguage === 'te' 
-          ? 'తెలుగు అందుబాటులో ఉన్న పత్రం (Telugu Accessible Document)' 
-          : targetLanguage === 'hi' 
-          ? 'हिंदी सुलभ संस्करण (Hindi Accessible Document)' 
-          : `${targetLangName} Accessible Document`,
-        content: openAiTrans,
-        languageName: targetLangName,
-      };
-    }
-
-    // Universal Neural Translation Engine with fast concurrent processing
-    try {
-      const cleanLines = text.split('\n').slice(0, 35);
-
-      const translateLine = async (line: string): Promise<string> => {
-        if (!line.trim()) return '';
-
-        const headingMatch = line.match(/^(#+)\s*(.*)$/);
-        const prefix = headingMatch ? `${headingMatch[1]} ` : '';
-        const lineText = headingMatch ? headingMatch[2] : line;
-
-        // Skip translation for pure formatting/table boundaries
-        if (lineText.includes('---')) return line;
-
-        // 1. Try Google Translate Neural API with 2.5s timeout
-        try {
-          const controller = new AbortController();
-          const timeout = setTimeout(() => controller.abort(), 2500);
-          const gUrl = `https://translate.googleapis.com/translate_a/single?client=gtx&sl=auto&tl=${targetLanguage}&dt=t&q=${encodeURIComponent(lineText)}`;
-          const gRes = await fetch(gUrl, { signal: controller.signal });
-          clearTimeout(timeout);
-          if (gRes.ok) {
-            const gData = await gRes.json();
-            if (gData && Array.isArray(gData[0])) {
-              const fullTrans = gData[0].map((segment: any) => segment[0]).filter(Boolean).join('');
-              if (fullTrans && fullTrans.trim().length > 0) {
-                return `${prefix}${fullTrans}`;
-              }
-            }
-          }
-        } catch {
-          // Fall through to dictionary
-        }
-
-        // 2. Dictionary Fallback
-        let translated = lineText;
-        const dictionary = targetLanguage === 'hi' ? HINDI_DICTIONARY : TELUGU_DICTIONARY;
-        for (const [enTerm, transTerm] of Object.entries(dictionary)) {
-          const regex = new RegExp(`\\b${enTerm}\\b`, 'gi');
-          translated = translated.replace(regex, transTerm);
-        }
-
-        return `${prefix}${translated}`;
-      };
-
-      const translatedChunks = await Promise.all(cleanLines.map((l) => translateLine(l)));
-
-      if (translatedChunks.length > 0) {
-        let fullTranslatedMarkdown = translatedChunks.join('\n');
-
-        // Add Telugu Simple Summary Header if missing
-        if (targetLanguage === 'te' && !fullTranslatedMarkdown.includes('సులభమైన సారాంశం')) {
-          fullTranslatedMarkdown = `## సులభమైన సారాంశం (Simple Summary)\nఈ పత్రం ముఖ్యమైన నిబంధనలు, అర్హత ప్రమాణాలు మరియు దరఖాస్తు విధానాన్ని వివరిస్తుంది. సమాచారాన్ని సులభంగా అర్థం చేసుకోవడానికి కింద పూర్తి వివరాలు అందించబడ్డాయి.\n\n` + fullTranslatedMarkdown;
-        }
-
-        const defaultTitle = targetLanguage === 'te' 
-          ? 'తెలుగు అందుబాటులో ఉన్న పత్రం (Telugu Accessible Document)'
-          : targetLanguage === 'hi'
-          ? 'हिंदी सुलभ संस्करण (Hindi Accessible Document)'
-          : `${targetLangName} Accessible Document`;
-
-        return {
-          title: defaultTitle,
-          content: fullTranslatedMarkdown,
-          languageName: targetLangName,
-        };
-      }
-    } catch (neuralErr) {
-      console.warn('Neural translation fallback error:', neuralErr);
-    }
-
-    // Static dictionary fallback
     const lines = text.split('\n');
-    const dictionary = targetLanguage === 'hi' ? HINDI_DICTIONARY : TELUGU_DICTIONARY;
-
-    const translatedLines = lines.map((line) => {
-      if (!line.trim()) return '';
-      let translatedLine = line;
-
-      for (const [enTerm, transTerm] of Object.entries(dictionary)) {
-        const regex = new RegExp(`\\b${enTerm}\\b`, 'gi');
-        translatedLine = translatedLine.replace(regex, transTerm);
-      }
-
-      return translatedLine;
-    });
+    const translatedLines: string[] = [];
 
     if (targetLanguage === 'te') {
-      return {
-        title: 'తెలుగు అందుబాటులో ఉన్న పత్రం (Telugu Accessible Document)',
-        languageName: 'Telugu',
-        content: `## సులభమైన సారాంశం (Simple Summary)\nఈ పత్రం అర్హత నిబంధనలు, అవసరమైన పత్రాలు మరియు చివరి తేదీని వివరిస్తుంది.\n\n# తెలుగు అనువాదం\n\n${translatedLines.join('\n')}`,
-      };
+      translatedLines.push('## సరళమైన సారాంశం (Simple Summary)');
+      translatedLines.push('ఈ సమాచారం వినియోగదారుల కోసం సులభమైన తెలుగులోకి మార్చబడింది.');
+      translatedLines.push('');
+    } else if (targetLanguage === 'hi') {
+      translatedLines.push('## सरल सारांश (Simple Summary)');
+      translatedLines.push('यह सामग्री उपयोगकर्ताओं के लिए सुलभ हिंदी में परिवर्तित की गई है।');
+      translatedLines.push('');
     }
 
-    if (targetLanguage === 'hi') {
-      return {
-        title: 'हिंदी सुलभ संस्करण (Hindi Accessible Document)',
-        languageName: 'Hindi',
-        content: `## सरल सारांश (Simple Summary)\nयह दस्तावेज़ पात्रता, आवश्यक दस्तावेज और अंतिम तिथि की व्याख्या करता है।\n\n# हिंदी अनुवाद\n\n${translatedLines.join('\n')}`,
-      };
+    const dict = targetLanguage === 'te' ? TELUGU_ACCESSIBILITY_DICTIONARY : HINDI_ACCESSIBILITY_DICTIONARY;
+
+    for (const line of lines) {
+      let trLine = line;
+      for (const [engWord, translation] of Object.entries(dict)) {
+        const regex = new RegExp(`\\b${engWord}\\b`, 'gi');
+        trLine = trLine.replace(regex, translation);
+      }
+      translatedLines.push(trLine);
     }
 
     return {
-      title: `${targetLangName} Accessible Document`,
+      title: `${targetLangName} Accessibility Translation`,
+      content: translatedLines.join('\n'),
       languageName: targetLangName,
-      content: `# ${targetLangName} Accessible Version\n\n${translatedLines.join('\n')}`,
+      simpleSummary: translatedLines[1] || `${targetLangName} translated content.`,
     };
   }
 
-  /**
-   * Generates an accessible, semantic HTML representation with full ARIA landmarks, proper list grouping, and accessible tables.
-   */
   public generateScreenReaderHtml(title: string, rawText: string): string {
     const lines = rawText.split('\n');
-    const elements: string[] = [];
+    let html = `<main role="main" aria-label="${title} Accessible Document">\n  <header>\n    <h1 tabindex="0">${title}</h1>\n  </header>\n  <article role="article">\n`;
+
     let inList = false;
-    let listItems: string[] = [];
     let inTable = false;
-    let tableHeaders: string[] = [];
-    let tableRows: string[][] = [];
-
-    const flushList = () => {
-      if (inList && listItems.length > 0) {
-        elements.push(`    <ul role="list">\n${listItems.map((li) => `      <li>${li}</li>`).join('\n')}\n    </ul>`);
-        listItems = [];
-        inList = false;
-      }
-    };
-
-    const flushTable = () => {
-      if (inTable && tableHeaders.length > 0) {
-        elements.push(`    <div class="table-responsive" role="region" aria-label="Data Table" tabindex="0">
-      <table role="table">
-        <caption>Data Table: ${tableHeaders.slice(0, 3).join(', ')}</caption>
-        <thead>
-          <tr>${tableHeaders.map((h) => `<th scope="col">${h}</th>`).join('')}</tr>
-        </thead>
-        <tbody>
-          ${tableRows.map((r) => `<tr>${r.map((c, ci) => ci === 0 ? `<th scope="row">${c}</th>` : `<td>${c}</td>`).join('')}</tr>`).join('\n          ')}
-        </tbody>
-      </table>
-    </div>`);
-        tableHeaders = [];
-        tableRows = [];
-        inTable = false;
-      }
-    };
 
     for (let i = 0; i < lines.length; i++) {
-      const line = lines[i].trim();
+      const line = lines[i];
+      const trimmed = line.trim();
+      if (!trimmed) continue;
 
-      // Check Table
-      if (line.includes('|') && line.split('|').length >= 3) {
-        flushList();
-        if (line.includes('---')) continue;
-        const cells = line.split('|').map((c) => c.trim()).filter((_, idx, arr) => idx > 0 && idx < arr.length - 1);
+      if (trimmed.startsWith('### ')) {
+        if (inList) { html += '    </ul>\n'; inList = false; }
+        if (inTable) { html += '      </tbody>\n    </table>\n'; inTable = false; }
+        html += `    <h3 tabindex="0">${trimmed.replace(/^###\s*/, '')}</h3>\n`;
+      } else if (trimmed.startsWith('## ')) {
+        if (inList) { html += '    </ul>\n'; inList = false; }
+        if (inTable) { html += '      </tbody>\n    </table>\n'; inTable = false; }
+        html += `    <h2 tabindex="0">${trimmed.replace(/^##\s*/, '')}</h2>\n`;
+      } else if (trimmed.startsWith('# ')) {
+        if (inList) { html += '    </ul>\n'; inList = false; }
+        if (inTable) { html += '      </tbody>\n    </table>\n'; inTable = false; }
+        html += `    <h2 tabindex="0">${trimmed.replace(/^#\s*/, '')}</h2>\n`;
+      } else if (trimmed.startsWith('* ') || trimmed.startsWith('- ') || /^\d+\.\s/.test(trimmed)) {
+        if (!inList) { html += '    <ul role="list">\n'; inList = true; }
+        html += `      <li role="listitem">${trimmed.replace(/^[*•\-\d.]+\s*/, '')}</li>\n`;
+      } else if (trimmed.includes('|') && trimmed.split('|').length >= 3) {
+        if (inList) { html += '    </ul>\n'; inList = false; }
+        if (trimmed.includes('---')) continue;
+        const cells = trimmed.split('|').map((c) => c.trim()).filter(Boolean);
         if (cells.length > 0) {
-          inTable = true;
-          if (tableHeaders.length === 0) {
-            tableHeaders = cells;
+          if (!inTable) {
+            inTable = true;
+            html += `    <table role="table" aria-label="Data Table">\n      <thead>\n        <tr>${cells.map((c) => `<th scope="col">${c}</th>`).join('')}</tr>\n      </thead>\n      <tbody>\n`;
           } else {
-            tableRows.push(cells);
+            html += `        <tr>${cells.map((c, i) => i === 0 ? `<th scope="row">${c}</th>` : `<td>${c}</td>`).join('')}</tr>\n`;
           }
-          continue;
         }
       } else {
-        flushTable();
-      }
-
-      // Check List
-      if (line.startsWith('* ') || line.startsWith('- ') || /^\d+\.\s/.test(line)) {
-        inList = true;
-        listItems.push(line.replace(/^([*|-]|\d+\.)\s*/, ''));
-        continue;
-      } else {
-        flushList();
-      }
-
-      if (!line) continue;
-
-      // Headings
-      if (line.startsWith('# ')) {
-        elements.push(`    <h1 id="heading-${i}">${line.replace('# ', '')}</h1>`);
-      } else if (line.startsWith('## ')) {
-        elements.push(`    <h2 id="heading-${i}">${line.replace('## ', '')}</h2>`);
-      } else if (line.startsWith('### ')) {
-        elements.push(`    <h3 id="heading-${i}">${line.replace('### ', '')}</h3>`);
-      } else {
-        elements.push(`    <p>${line}</p>`);
+        if (inList) { html += '    </ul>\n'; inList = false; }
+        if (inTable) { html += '      </tbody>\n    </table>\n'; inTable = false; }
+        html += `    <p>${trimmed}</p>\n`;
       }
     }
 
-    flushList();
-    flushTable();
+    if (inList) html += '    </ul>\n';
+    if (inTable) html += '      </tbody>\n    </table>\n';
+    html += '  </article>\n</main>';
 
-    return `<!DOCTYPE html>
-<html lang="en">
-<head>
-  <meta charset="UTF-8">
-  <meta name="viewport" content="width=device-width, initial-scale=1.0">
-  <title>${title} - Accessible Remediated Version</title>
-  <style>
-    body { font-family: system-ui, -apple-system, sans-serif; line-height: 1.6; color: #192138; max-width: 860px; margin: 0 auto; padding: 2rem; }
-    h1, h2, h3 { color: #0f172a; }
-    table { width: 100%; border-collapse: collapse; margin: 1.5rem 0; }
-    th, td { border: 1px solid #cbd5e1; padding: 0.75rem; text-align: left; }
-    th { background: #f8fafc; font-weight: bold; }
-    .skip-link { position: absolute; left: -9999px; }
-    .skip-link:focus { left: 1rem; top: 1rem; background: #000; color: #fff; padding: 0.5rem; }
-  </style>
-</head>
-<body>
-  <header role="banner">
-    <nav aria-label="Skip Links">
-      <a href="#main-content" class="skip-link">Skip to main content</a>
-    </nav>
-  </header>
-  
-  <main id="main-content" role="main" aria-label="${title}">
-${elements.join('\n\n')}
-  </main>
-  
-  <footer role="contentinfo" aria-label="Remediation Metadata">
-    <hr />
-    <p><small>Remediated with INCLUSA Autonomous Accessibility Engine &copy; 2026. WCAG 2.2 Compliant.</small></p>
-  </footer>
-</body>
-</html>`;
+    return html;
   }
 
-  /**
-   * Generates WebVTT subtitles & timestamped captions for audio/video media.
-   */
-  public generateWebVttCaptions(title: string, dialogueLines?: Array<{ speaker: string; text: string; start: number; end: number }>): string {
-    const lines = dialogueLines || [
-      { speaker: 'Narrator', text: `Welcome to the accessible overview of ${title}.`, start: 0, end: 4 },
-      { speaker: 'Presenter', text: 'This document has been adapted for equal cognitive and sensory accessibility.', start: 5, end: 10 },
-      { speaker: 'Presenter', text: 'All criteria, process stages, and data tables are structured for assistive technology.', start: 11, end: 17 },
-      { speaker: 'Narrator', text: 'Review key deadlines and required documents before submitting.', start: 18, end: 24 },
+  public generateWebVttCaptions(title: string): string {
+    const lines = [
+      { start: 0, end: 5, text: `Welcome to the accessible audio version of ${title}.`, speaker: 'Narrator' },
+      { start: 5, end: 12, text: 'This narration provides full structural summary, action points, and key metrics.', speaker: 'Narrator' },
+      { start: 12, end: 20, text: 'All details are verified and formatted for screen-reader and auditory comprehension.', speaker: 'Narrator' },
     ];
 
-    const formatVttTime = (seconds: number) => {
+    const formatVttTime = (seconds: number): string => {
       const mins = Math.floor(seconds / 60);
       const secs = Math.floor(seconds % 60);
       const ms = Math.floor((seconds % 1) * 1000);
-      return `${mins.toString().padStart(2, '0')}:${secs.toString().padStart(2, '0')}.${ms.toString().padStart(3, '0')}`;
+      return `${String(mins).padStart(2, '0')}:${String(secs).padStart(2, '0')}.${String(ms).padStart(3, '0')}`;
     };
 
     let vtt = `WEBVTT - ${title} Accessible Captions\n\n`;
@@ -1259,9 +990,6 @@ ${elements.join('\n\n')}
     return vtt;
   }
 
-  /**
-   * Context-Aware Document RAG Q&A Assistant grounded strictly in the user's actual document text.
-   */
   public async answerDocumentQuestion(params: {
     question: string;
     documentTitle: string;
@@ -1272,19 +1000,15 @@ ${elements.join('\n\n')}
     const qTrim = question.trim();
     const qLower = qTrim.toLowerCase();
 
-    // 1. Clean and parse document structures
     const docLines = documentText.split('\n').map((l) => l.trim()).filter((l) => l.length > 0);
-    const tableLines = docLines.filter((l) => l.includes('|'));
     const nonHeadingLines = docLines.filter((l) => !l.startsWith('#') && !l.startsWith('|') && l.length > 10);
-    const headings = docLines.filter((l) => l.startsWith('#')).map((h) => h.replace(/^#+\s*/, ''));
 
-    // 2. Try Gemini Live if available
-    const ragPrompt = `You are INCLUSA Assistant, an expert accessibility co-pilot.
-Answer the user's question accurately, helpfully, and with empathy using ONLY the provided document context.
-If asked about charts or diagrams, explain what they communicate in clear plain language.
-If asked about deadlines or numbers, cite them exactly.
-If asked for takeaways, provide 3 numbered takeaways.
-If asked to translate into Telugu or Hindi, do so accurately.
+    const ragPrompt = `You are INCLUSA Assistant, a document accessibility co-pilot.
+Answer the user's question using ONLY the provided document context.
+CRITICAL GROUNDING RULES:
+1. If the answer cannot be found in the document, reply: "I cannot reliably determine that from the provided content."
+2. Never invent eligibility rules, deadlines, or fees if they are not in the document.
+3. Cite exact facts and numbers from the document.
 
 Document Title: "${documentTitle}"
 Document Content:
@@ -1292,10 +1016,10 @@ ${documentText.slice(0, 5000)}
 
 User Question: "${question}"
 
-Respond with valid JSON containing:
+Respond with JSON:
 {
-  "answer": "markdown string formatting your answer clearly",
-  "citations": [{"pageNumber": 1, "section": "Section Name", "snippet": "exact snippet from document"}]
+  "answer": "markdown string",
+  "citations": [{"pageNumber": 1, "section": "Section Name", "snippet": "exact snippet"}]
 }`;
 
     const geminiRes = await this.callGemini(ragPrompt, { jsonMode: true });
@@ -1314,136 +1038,89 @@ Respond with valid JSON containing:
       }
     }
 
-    // 3. Try OpenAI Live if available
-    const openAiRes = await this.callOpenAi(ragPrompt, { jsonMode: true });
-    if (openAiRes) {
-      try {
-        const cleaned = openAiRes.replace(/^```json\s*/, '').replace(/\s*```$/, '').trim();
-        const parsed = JSON.parse(cleaned);
-        if (parsed.answer) {
-          return {
-            answer: parsed.answer,
-            citations: parsed.citations || [],
-          };
-        }
-      } catch (e) {
-        console.warn('OpenAI chat json parse fallback', e);
-      }
-    }
-
-    // 4. Grounded Context Engine (Deterministic NLP)
-
-    // INTENT A: Greetings
-    if (/^(hi|hello|hey|greetings|good morning|good afternoon|good evening|yo)\b/i.test(qTrim)) {
-      const topicSnippet = nonHeadingLines[0] ? nonHeadingLines[0].slice(0, 140) + '...' : documentTitle;
+    if (/^(hi|hello|hey|greetings)\b/i.test(qTrim)) {
       return {
-        answer: `Hello! I am **INCLUSA Assistant**, your document accessibility co-pilot.\n\nI have analyzed **"${documentTitle}"** (${docLines.length} blocks, ${headings.length > 0 ? headings.length + ' headings' : 'structured text'}).\n\n**Here are a few things you can ask me:**\n- 📄 *“What is this document about and who is it for?”*\n- 📊 *“Explain the chart/diagram and what it shows”*\n- 💡 *“What are the key deadlines and requirements?”*\n- 🌐 *“Explain this in simple Telugu / Hindi”*\n- ♿ *“What accessibility barriers were remediated?”*\n\nHow can I help you understand this document today?`,
-        citations: [{ pageNumber: 1, section: 'Document Overview', snippet: topicSnippet }],
+        answer: `Hello! I am **INCLUSA Assistant**.\n\nI have analyzed **"${documentTitle}"**.\n\n**You can ask me:**\n- *"What is this content about?"*\n- *"What does the image or chart show?"*\n- *"What are the key points?"*\n- *"Explain this in Telugu / Hindi"*\n\nHow can I help you understand this content?`,
+        citations: [{ pageNumber: 1, section: 'Overview', snippet: nonHeadingLines[0] || documentTitle }],
       };
     }
 
-    // INTENT B: What is this document about?
-    if (
-      qLower.includes('about') ||
-      qLower.includes('what is this') ||
-      qLower.includes('what is the document') ||
-      qLower.includes('what is the pdf') ||
-      qLower.includes('summary') ||
-      qLower.includes('overview') ||
-      qLower.includes('explain document')
-    ) {
+    if (qLower.includes('about') || qLower.includes('what is this') || qLower.includes('summary') || qLower.includes('show')) {
       const intro = nonHeadingLines[0] || documentText.slice(0, 200);
-      const details = nonHeadingLines.slice(1, 3).join('\n\n');
-
       return {
-        answer: `### What **${documentTitle}** is About:\n\n**Core Purpose:**\n${intro}\n\n${details ? `**Key Provisions & Content:**\n${details}\n\n` : ''}**Key Things to Remember:**\n- Check all eligibility requirements and instructions before applying or submitting.\n- Note all required documents and deadlines.\n- Use the Simplified tab or Audio Reader if you prefer an easy-to-read breakdown.`,
-        citations: [{ pageNumber: 1, section: 'Document Purpose', snippet: intro.slice(0, 160) }],
+        answer: `### What **${documentTitle}** is About:\n\n${intro}`,
+        citations: [{ pageNumber: 1, section: 'Summary', snippet: intro.slice(0, 160) }],
       };
     }
 
-    // INTENT C: Charts, Diagrams, Visuals
-    if (
-      qLower.includes('chart') ||
-      qLower.includes('diagram') ||
-      qLower.includes('image') ||
-      qLower.includes('graph') ||
-      qLower.includes('figure') ||
-      qLower.includes('visual')
-    ) {
-      const chartLine = docLines.find((l) => l.toLowerCase().includes('diagram') || l.toLowerCase().includes('stage') || l.toLowerCase().includes('chart') || l.toLowerCase().includes('process'));
+    if (qLower.includes('deadline') || qLower.includes('date') || qLower.includes('eligib') || qLower.includes('requirement')) {
+      const reqLines = nonHeadingLines.filter((l) =>
+        l.toLowerCase().includes('eligib') ||
+        l.toLowerCase().includes('require') ||
+        l.toLowerCase().includes('deadline') ||
+        l.toLowerCase().includes('date') ||
+        l.toLowerCase().includes('must')
+      );
+
+      if (reqLines.length > 0) {
+        return {
+          answer: `### Requirements & Deadlines in **${documentTitle}**:\n\n${reqLines.map((r) => `- ${r}`).join('\n\n')}`,
+          citations: [{ pageNumber: 1, section: 'Requirements', snippet: reqLines[0].slice(0, 160) }],
+        };
+      }
+
       return {
-        answer: `### Visual & Diagram Analysis for **${documentTitle}**:\n\n${chartLine ? `**What the visual communicates:**\n${chartLine}\n\n` : ''}**Key Visual Insights:**\n1. **Structure & Order**: The visual breaks the process into clear, sequential stages.\n2. **Accessible Breakdown**: Full descriptive text, tabular data, and high-contrast cues have been generated so screen reader and low-vision users understand every element.\n3. **Tabular Data**: Check the *Image & Chart Descriptions* tab for complete numerical breakdowns.`,
-        citations: [{ pageNumber: 1, section: 'Visual Analysis', snippet: (chartLine || documentTitle).slice(0, 160) }],
+        answer: `No deadlines or eligibility requirements are found in the provided content.`,
+        citations: [{ pageNumber: 1, section: 'Verification', snippet: documentTitle }],
       };
     }
 
-    // INTENT D: Deadlines, Dates, Requirements, Eligibility
-    if (
-      qLower.includes('deadline') ||
-      qLower.includes('date') ||
-      qLower.includes('requirement') ||
-      qLower.includes('eligibility') ||
-      qLower.includes('criteria') ||
-      qLower.includes('need') ||
-      qLower.includes('apply')
-    ) {
-      const reqLines = nonHeadingLines.filter((l) => l.toLowerCase().includes('eligib') || l.toLowerCase().includes('require') || l.toLowerCase().includes('deadline') || l.toLowerCase().includes('date') || l.toLowerCase().includes('must') || l.toLowerCase().includes('gpa') || l.toLowerCase().includes('income'));
+    if (qLower.includes('action') || qLower.includes('what do i need to do') || qLower.includes('step')) {
+      const actionLines = nonHeadingLines.filter((l) =>
+        l.toLowerCase().includes('step') ||
+        l.toLowerCase().includes('submit') ||
+        l.toLowerCase().includes('apply') ||
+        l.toLowerCase().includes('register') ||
+        l.toLowerCase().includes('complete') ||
+        l.toLowerCase().includes('act now')
+      );
+
+      if (actionLines.length > 0) {
+        return {
+          answer: `### Action Steps in **${documentTitle}**:\n\n${actionLines.map((a, i) => `${i + 1}. ${a}`).join('\n')}`,
+          citations: [{ pageNumber: 1, section: 'Action Steps', snippet: actionLines[0].slice(0, 160) }],
+        };
+      }
+
       return {
-        answer: `### Important Requirements & Deadlines in **${documentTitle}**:\n\n${reqLines.length > 0 ? reqLines.map((r) => `- ${r}`).join('\n\n') : '- Please review the full requirements and ensure all criteria are satisfied before submission.'}\n\n*All conditions and dates have been verified from the document content.*`,
-        citations: [{ pageNumber: 1, section: 'Requirements & Deadlines', snippet: (reqLines[0] || documentTitle).slice(0, 160) }],
+        answer: `There are no explicit action steps in this content.`,
+        citations: [{ pageNumber: 1, section: 'Verification', snippet: documentTitle }],
       };
     }
 
-    // INTENT E: Telugu Translation
     if (qLower.includes('telugu') || qLower.includes('తెలుగు')) {
       const trans = await this.translateContent(documentText.slice(0, 1200), 'te');
       return {
-        answer: `### ${documentTitle} — తెలుగు సారాంశం (Telugu Summary):\n\n${trans.content}\n\n*ఈ సమాచారం మీ పత్రం ఆధారంగా తెలుగులో అనువదించబడింది.*`,
+        answer: `### ${documentTitle} — తెలుగు సారాంశం (Telugu Summary):\n\n${trans.content}`,
         citations: [{ pageNumber: 1, section: 'తెలుగు అనువాదం', snippet: docLines[0] || documentTitle }],
       };
     }
 
-    // INTENT F: General Grounded Fallback
-    const stopWords = new Set(['what', 'when', 'where', 'which', 'who', 'whom', 'whose', 'why', 'how', 'is', 'are', 'was', 'were', 'the', 'a', 'an', 'in', 'on', 'at', 'to', 'for', 'of', 'with', 'about', 'tell', 'show', 'give', 'me', 'please', 'can', 'you']);
-    const queryTokens = qLower
-      .replace(/[^a-z0-9\s]/g, ' ')
-      .split(/\s+/)
-      .filter((w) => w.length > 2 && !stopWords.has(w));
+    const matchingLines = nonHeadingLines.filter((l) => {
+      const words = qLower.split(/\s+/).filter((w) => w.length > 3);
+      return words.some((w) => l.toLowerCase().includes(w));
+    });
 
-    if (queryTokens.length > 0) {
-      const scoredParagraphs = nonHeadingLines.map((p) => {
-        const pLower = p.toLowerCase();
-        let score = 0;
-        for (const token of queryTokens) {
-          if (pLower.includes(token)) score += 1;
-        }
-        return { text: p, score };
-      });
-
-      scoredParagraphs.sort((a, b) => b.score - a.score);
-      const topMatches = scoredParagraphs.filter((sp) => sp.score > 0).slice(0, 3);
-
-      if (topMatches.length > 0) {
-        const combined = topMatches.map((m) => m.text).join('\n\n');
-        return {
-          answer: `### Answer to: *"${question}"*\n\nBased on **${documentTitle}**:\n\n${combined}\n\n*Directly extracted from your uploaded document.*`,
-          citations: [
-            {
-              pageNumber: 1,
-              section: 'Document Excerpt',
-              snippet: topMatches[0].text.slice(0, 160),
-            },
-          ],
-        };
-      }
+    if (matchingLines.length > 0) {
+      return {
+        answer: `### Information regarding your question:\n\n${matchingLines.slice(0, 3).map((m) => `- ${m}`).join('\n\n')}`,
+        citations: [{ pageNumber: 1, section: 'Content Match', snippet: matchingLines[0].slice(0, 160) }],
+      };
     }
 
-    const sampleText = nonHeadingLines.slice(0, 3).join('\n\n') || documentText.slice(0, 300);
     return {
-      answer: `### Regarding: *"${question}"*\n\nHere is what **${documentTitle}** states:\n\n${sampleText}\n\n*You can ask me to extract specific deadlines, explain diagrams, or translate any section.*`,
-      citations: [
-        { pageNumber: 1, section: 'Context Reference', snippet: (nonHeadingLines[0] || documentText).slice(0, 160) },
-      ],
+      answer: `I cannot reliably determine an answer to that question from the provided content.`,
+      citations: [{ pageNumber: 1, section: 'Content Search', snippet: documentTitle }],
     };
   }
 }

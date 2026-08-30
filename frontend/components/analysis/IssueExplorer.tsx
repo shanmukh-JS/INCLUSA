@@ -71,8 +71,8 @@ export const IssueExplorer: React.FC<IssueExplorerProps> = ({
       const q = searchQuery.toLowerCase();
       return (
         iss.title.toLowerCase().includes(q) ||
-        iss.description.toLowerCase().includes(q) ||
-        iss.location.toLowerCase().includes(q)
+        (iss.description || '').toLowerCase().includes(q) ||
+        (iss.location || '').toLowerCase().includes(q)
       );
     }
     return true;

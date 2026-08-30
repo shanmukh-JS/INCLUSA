@@ -11,6 +11,7 @@ interface AuthContextType {
   isLoading: boolean;
   isConfigured: boolean;
   login: (email: string, password?: string) => Promise<{ success: boolean; error?: string }>;
+  loginAsDemo: () => Promise<{ success: boolean }>;
   signUp: (data: { email: string; password?: string; fullName: string }) => Promise<{ success: boolean; error?: string; message?: string }>;
   logout: () => Promise<void>;
   resetPassword: (email: string) => Promise<{ success: boolean; error?: string }>;
@@ -70,6 +71,15 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
       if (stored) {
         const parsed: AuthSession = JSON.parse(stored);
         if (parsed?.token) {
+          // Handle demo session
+          if (parsed.token.startsWith('mock_jwt_') || parsed.user?.id === 'user_demo_auditor') {
+            setUser(parsed.user);
+            setSession(parsed);
+            setAuthCookie(parsed.token);
+            setIsLoading(false);
+            return;
+          }
+
           // Cryptographic verification with Supabase Auth API
           const { data, error } = await supabase.auth.getUser(parsed.token);
           if (data?.user && !error) {
@@ -158,6 +168,29 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
     setAuthCookie(authSession.token);
     if (typeof window !== 'undefined') {
       localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(authSession));
+    }
+    setIsLoading(false);
+    return { success: true };
+  };
+
+  const loginAsDemo = async (): Promise<{ success: boolean }> => {
+    setIsLoading(true);
+    const guestUser: User = {
+      id: 'user_demo_auditor',
+      email: 'auditor@inclusa.ai',
+      fullName: 'Accessibility Auditor (Demo)',
+      createdAt: new Date().toISOString(),
+    };
+    const guestSession: AuthSession = {
+      user: guestUser,
+      token: 'mock_jwt_session_auditor',
+      expiresAt: Date.now() + 86400000 * 7,
+    };
+    setUser(guestUser);
+    setSession(guestSession);
+    setAuthCookie(guestSession.token);
+    if (typeof window !== 'undefined') {
+      localStorage.setItem(AUTH_STORAGE_KEY, JSON.stringify(guestSession));
     }
     setIsLoading(false);
     return { success: true };
@@ -299,6 +332,7 @@ export const AuthProvider: React.FC<{ children: React.ReactNode }> = ({ children
         isLoading,
         isConfigured,
         login,
+        loginAsDemo,
         signUp,
         logout,
         resetPassword,

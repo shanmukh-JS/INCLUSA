@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect } from 'react';
+import React, { useState, useEffect, useCallback } from 'react';
 import Link from 'next/link';
 import { useRouter } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -29,12 +29,12 @@ export default function SignupPage() {
   const [successMsg, setSuccessMsg] = useState<string | null>(null);
   const [isSubmitting, setIsSubmitting] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     if (session?.token) {
       document.cookie = `inclusa_auth_token=${encodeURIComponent(session.token)}; path=/; max-age=604800; SameSite=Lax`;
     }
     window.location.href = '/dashboard';
-  };
+  }, [session?.token]);
 
   // Auto-redirect if already logged in
   useEffect(() => {
@@ -44,7 +44,7 @@ export default function SignupPage() {
       }, 700);
       return () => clearTimeout(timer);
     }
-  }, [user, isLoading]);
+  }, [user, isLoading, handleContinue]);
 
   // If already logged in, show clear authenticated state with instant redirect action
   if (!isLoading && user) {

@@ -1,4 +1,4 @@
-import {
+import type {
   AccessibilityIssue,
   AccessibilityScoreResult,
   CategoryScores,
@@ -10,7 +10,6 @@ import { WCAG_ACCESSIBILITY_RULES } from '../rules/wcag-rules';
 
 export const TOTAL_WCAG_RULES = WCAG_ACCESSIBILITY_RULES.length;
 
-// Category Weights (Sum = 1.0 / 100%)
 export const CATEGORY_WEIGHTS: Record<RuleCategory, number> = {
   vision: 0.20,
   cognitive: 0.20,
@@ -20,7 +19,6 @@ export const CATEGORY_WEIGHTS: Record<RuleCategory, number> = {
   screen_reader: 0.15,
 };
 
-// Penalty Deductions by Severity per Issue
 export const SEVERITY_PENALTIES: Record<SeverityLevel, number> = {
   critical: 28,
   high: 16,
@@ -29,9 +27,6 @@ export const SEVERITY_PENALTIES: Record<SeverityLevel, number> = {
   passed: 0,
 };
 
-/**
- * Calculates category score (0..100) based on active issues within that category.
- */
 export function calculateCategoryScore(category: RuleCategory, issues: AccessibilityIssue[]): number {
   const categoryIssues = issues.filter((iss) => iss.category === category && !iss.isResolved);
   
@@ -42,7 +37,6 @@ export function calculateCategoryScore(category: RuleCategory, issues: Accessibi
   let totalPenalty = 0;
   for (const issue of categoryIssues) {
     const penalty = SEVERITY_PENALTIES[issue.severity] || 0;
-    // Scale penalty slightly by confidence
     const confidenceMultiplier = (issue.confidenceScore || 100) / 100;
     totalPenalty += penalty * confidenceMultiplier;
   }
@@ -51,9 +45,6 @@ export function calculateCategoryScore(category: RuleCategory, issues: Accessibi
   return Math.max(0, Math.min(100, Math.round(rawScore)));
 }
 
-/**
- * Calculates overall weighted accessibility score (0..100) across all 6 categories.
- */
 export function calculateOverallScore(categoryScores: CategoryScores): number {
   const weighted =
     categoryScores.vision * CATEGORY_WEIGHTS.vision +
@@ -66,9 +57,6 @@ export function calculateOverallScore(categoryScores: CategoryScores): number {
   return Math.max(0, Math.min(100, Math.round(weighted)));
 }
 
-/**
- * Derives qualitative status label from numeric score.
- */
 export function getScoreStatus(score: number): 'Critical Barriers' | 'Needs Improvement' | 'Acceptable' | 'Highly Accessible' {
   if (score >= 90) return 'Highly Accessible';
   if (score >= 75) return 'Acceptable';
@@ -76,9 +64,6 @@ export function getScoreStatus(score: number): 'Critical Barriers' | 'Needs Impr
   return 'Critical Barriers';
 }
 
-/**
- * Computes full initial score result from detected issues.
- */
 export function calculateInitialScore(issues: AccessibilityIssue[]): AccessibilityScoreResult {
   const categories: CategoryScores = {
     vision: calculateCategoryScore('vision', issues),
@@ -96,7 +81,6 @@ export function calculateInitialScore(issues: AccessibilityIssue[]): Accessibili
   const lowIssues = issues.filter((i) => i.severity === 'low' && !i.isResolved).length;
   const totalIssues = criticalIssues + highIssues + mediumIssues + lowIssues;
 
-  // Passed checks count (Total WCAG rules - unresolved rules)
   const uniqueTriggeredRuleIds = new Set(issues.map((i) => i.ruleId)).size;
   const passedChecks = Math.max(0, TOTAL_WCAG_RULES - uniqueTriggeredRuleIds);
 
@@ -114,9 +98,6 @@ export function calculateInitialScore(issues: AccessibilityIssue[]): Accessibili
   };
 }
 
-/**
- * Computes final score after transformations have resolved target issues.
- */
 export function calculateFinalScore(
   initialIssues: AccessibilityIssue[],
   resolvedIssueIds: Set<string>
@@ -162,9 +143,6 @@ export function calculateFinalScore(
   return { finalScore, updatedIssues };
 }
 
-/**
- * Produces complete VerificationResult comparing Before and After states.
- */
 export function calculateVerificationDelta(
   documentId: string,
   initialIssues: AccessibilityIssue[],

@@ -1,52 +1,53 @@
-import {
+/**
+ * Agent 1 — Multimodal Content Understanding Agent
+ * Responsibilities:
+ * - Ingests multimodal documents, images, audio, video, PDFs, and URLs
+ * - Directs raw image bytes / base64 data to Google Gemini Vision for multimodal visual comprehension
+ * - Extracts structured visual semantics: visible text, objects, colors, layout, relationships, visual meaning, key facts, explicit actions
+ * - Produces structured JSON output conforming to the INCLUSA multimodal schema
+ * - NEVER uses the filename as semantic content
+ * - NEVER invents eligibility rules, application steps, or deadlines
+ */
+
+import type {
   ContentBlock,
   DocumentInputType,
   ExtractedImage,
   ExtractedMedia,
   ExtractedTable,
   StructuredContent,
+  StructuredImageAnalysis,
 } from '@/types';
 import { aiService } from '../ai/ai-service';
 
-export interface IngestionInput {
+export interface ContentUnderstandingInput {
   id?: string;
   inputType: DocumentInputType;
   title?: string;
   fileName?: string;
-  fileSizeBytes?: number;
   rawText?: string;
   fileDataUrl?: string;
   url?: string;
+  fileSizeBytes?: number;
 }
 
-/**
- * Agent 1 — Content Understanding Agent
- * Responsibilities:
- * - Identify input type
- * - Extract live multimodal text & reading order (Gemini Vision / OCR)
- * - Understand images & detect charts
- * - Detect tables & extract data
- * - Understand audio/video speech cues
- * - Detect language & document structure hierarchy
- */
 export class ContentUnderstandingAgent {
-  public async analyze(input: IngestionInput): Promise<StructuredContent> {
-    const documentId = input.id || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 7)}`;
+  public async analyze(input: ContentUnderstandingInput): Promise<StructuredContent> {
+    const documentId = input.id || `doc_${Date.now()}_${Math.random().toString(36).substring(2, 8)}`;
     const inputType = input.inputType;
-    const fileName = input.fileName || input.title || 'Digital Document';
-    const initialTitle = input.title || input.fileName || 'Digital Document';
+    const fileName = input.fileName || 'Uploaded Document';
+    const fallbackTitle = input.title || (inputType === 'image' ? 'Visual Image Content' : 'Accessible Document');
 
-    // 1. Multimodal Extraction via Dual AI Engine
     let rawText = input.rawText || '';
     let extractedData: any = null;
 
-    if (input.fileDataUrl || !rawText || rawText.includes('Multimodal IMAGE file processed with INCLUSA autonomous accessibility agents.')) {
+    if (input.fileDataUrl || !rawText || rawText.includes('Multimodal IMAGE file processed with INCLUSA') || inputType === 'image') {
       try {
         extractedData = await aiService.extractMultimodalContent({
           fileDataUrl: input.fileDataUrl,
           fileName,
           inputType,
-          title: initialTitle,
+          title: fallbackTitle,
           url: input.url,
           rawText: input.rawText,
         });
@@ -55,26 +56,24 @@ export class ContentUnderstandingAgent {
           rawText = extractedData.text;
         }
       } catch (err) {
-        console.warn('Multimodal extraction fallback:', err);
+        console.warn('[Agent 1 - Content Understanding] Multimodal extraction warning:', err);
       }
     }
 
     if (!rawText || rawText.trim().length === 0) {
-      rawText = this.getDefaultContentForType(inputType, initialTitle);
+      rawText = this.getDefaultContentForType(inputType, fallbackTitle);
     }
 
-    const title = extractedData?.title || initialTitle;
+    const title = extractedData?.title || fallbackTitle;
+    const imageAnalysis: StructuredImageAnalysis | undefined = extractedData?.imageAnalysis;
 
-    // 2. Calculate NLP & Readability metrics
     const metrics = aiService.calculateReadabilityMetrics(rawText);
 
-    // 3. Parse blocks and headings
     const blocks: ContentBlock[] = [];
     const images: ExtractedImage[] = [];
     const tables: ExtractedTable[] = [];
     let media: ExtractedMedia | undefined = undefined;
 
-    // Use extracted tables if available
     if (extractedData?.tables && extractedData.tables.length > 0) {
       extractedData.tables.forEach((tbl: any, idx: number) => {
         tables.push({
@@ -89,16 +88,34 @@ export class ContentUnderstandingAgent {
       });
     }
 
-    // Use extracted image descriptions if available
     if (extractedData?.imageDescriptions && extractedData.imageDescriptions.length > 0) {
       extractedData.imageDescriptions.forEach((img: any, idx: number) => {
         images.push({
           id: `img_${idx + 1}`,
           pageNumber: 1,
-          isChartOrGraph: img.isChart,
+          isChartOrGraph: Boolean(img.isChart || imageAnalysis?.contentType === 'chart'),
           hasExistingAlt: false,
-          chartDataSummary: img.detailed || img.altText,
+          altText: img.altText || imageAnalysis?.altText,
+          detailedDescription: img.detailed || imageAnalysis?.detailedDescription,
+          simpleDescription: imageAnalysis?.visualMeaning,
+          chartDataSummary: img.detailed || img.altText || imageAnalysis?.layout,
         });
+      });
+    }
+
+    if (inputType === 'image' && images.length === 0) {
+      const conciseAlt = imageAnalysis?.altText || (imageAnalysis?.visualMeaning ? (imageAnalysis.visualMeaning.length > 120 ? `${imageAnalysis.visualMeaning.slice(0, 117)}...` : imageAnalysis.visualMeaning) : 'Visual image content requiring accessible description.');
+      const detailedDesc = imageAnalysis?.detailedDescription || imageAnalysis?.visualMeaning || 'Visual image presented with high-contrast elements and accessible description.';
+
+      images.push({
+        id: 'img_uploaded_main',
+        pageNumber: 1,
+        isChartOrGraph: Boolean(imageAnalysis?.contentType === 'chart'),
+        hasExistingAlt: false,
+        altText: conciseAlt,
+        detailedDescription: detailedDesc,
+        simpleDescription: imageAnalysis?.visualMeaning || conciseAlt,
+        chartDataSummary: imageAnalysis?.layout || detailedDesc,
       });
     }
 
@@ -141,9 +158,7 @@ export class ContentUnderstandingAgent {
       }
 
       if (line.includes('|') && line.split('|').length >= 3) {
-        // Table line
         if (line.includes('---')) {
-          // Separator line
           continue;
         }
         const cells = line.split('|').map((c) => c.trim()).filter(Boolean);
@@ -158,13 +173,13 @@ export class ContentUnderstandingAgent {
       } else {
         if (inTable) flushCurrentTable();
 
-        if (line.startsWith('# ')) {
+        if (line.startsWith('### ')) {
           blocks.push({
             id: `blk_${currentOrder}`,
             type: 'heading',
-            level: 1,
-            text: line.replace(/^#\s+/, ''),
-            pageNumber: Math.floor(i / 10) + 1,
+            level: 3,
+            text: line.replace(/^###\s*/, ''),
+            pageNumber: 1,
             readingOrder: currentOrder++,
           });
         } else if (line.startsWith('## ')) {
@@ -172,25 +187,25 @@ export class ContentUnderstandingAgent {
             id: `blk_${currentOrder}`,
             type: 'heading',
             level: 2,
-            text: line.replace(/^##\s+/, ''),
-            pageNumber: Math.floor(i / 10) + 1,
+            text: line.replace(/^##\s*/, ''),
+            pageNumber: 1,
             readingOrder: currentOrder++,
           });
-        } else if (line.startsWith('### ')) {
+        } else if (line.startsWith('# ')) {
           blocks.push({
             id: `blk_${currentOrder}`,
             type: 'heading',
-            level: 3,
-            text: line.replace(/^###\s+/, ''),
-            pageNumber: Math.floor(i / 10) + 1,
+            level: 1,
+            text: line.replace(/^#\s*/, ''),
+            pageNumber: 1,
             readingOrder: currentOrder++,
           });
-        } else if (line.startsWith('* ') || line.startsWith('- ')) {
+        } else if (line.startsWith('* ') || line.startsWith('- ') || /^\d+\.\s/.test(line)) {
           blocks.push({
             id: `blk_${currentOrder}`,
             type: 'list',
-            items: [line.replace(/^[*|-]\s*/, '')],
-            pageNumber: Math.floor(i / 10) + 1,
+            text: line.replace(/^[*•\-\d.]+\s*/, ''),
+            pageNumber: 1,
             readingOrder: currentOrder++,
           });
         } else {
@@ -198,7 +213,7 @@ export class ContentUnderstandingAgent {
             id: `blk_${currentOrder}`,
             type: 'paragraph',
             text: line,
-            pageNumber: Math.floor(i / 10) + 1,
+            pageNumber: 1,
             readingOrder: currentOrder++,
           });
         }
@@ -207,46 +222,14 @@ export class ContentUnderstandingAgent {
 
     if (inTable) flushCurrentTable();
 
-
-    // Detect / synthesize images if relevant to content type
-    if (images.length === 0 && (inputType === 'image' || inputType === 'pdf' || rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('figure') || rawText.toLowerCase().includes('graph') || rawText.toLowerCase().includes('screenshot'))) {
-      const firstHeading = blocks.find((b) => b.type === 'heading')?.text || title;
-      const contextSnippet = blocks.find((b) => b.type === 'paragraph' && b.text)?.text || title;
-
-      images.push({
-        id: 'img_1',
-        pageNumber: 1,
-        isChartOrGraph: rawText.toLowerCase().includes('chart') || rawText.toLowerCase().includes('graph') || rawText.toLowerCase().includes('data') || rawText.toLowerCase().includes('metrics'),
-        hasExistingAlt: false,
-        chartDataSummary: `Visual diagram and data metrics for "${firstHeading}". Context: ${contextSnippet.slice(0, 140)}`,
-      });
-      
-      if (blocks.length > 6) {
-        images.push({
-          id: 'img_2',
-          pageNumber: 2,
-          isChartOrGraph: false,
-          hasExistingAlt: false,
-          chartDataSummary: `Informational visual illustration associated with ${firstHeading}`,
-        });
-      }
-    }
-
-    // Detect media cues for audio/video
     if (inputType === 'audio' || inputType === 'video') {
       media = {
-        id: 'med_1',
-        type: inputType === 'video' ? 'video' : 'audio',
-        durationSeconds: 184,
-        hasAudio: true,
-        hasVideo: inputType === 'video',
-        detectedSpeechLanguage: 'en',
+        type: inputType,
+        durationSeconds: 120,
+        hasCaptions: false,
+        hasAudioDescription: false,
+        hasTranscript: false,
         transcript: rawText,
-        timedCaptions: [
-          { start: 0, end: 4, speaker: 'Host', text: 'Welcome to this accessibility overview.' },
-          { start: 5, end: 11, speaker: 'Presenter', text: 'We are demonstrating how INCLUSA transforms content automatically.' },
-          { start: 12, end: 18, speaker: 'Presenter', text: 'Visual charts, tables, and speech are remediated to full WCAG compliance.' },
-        ],
       };
     }
 
@@ -258,7 +241,7 @@ export class ContentUnderstandingAgent {
       inputType,
       title,
       originalFileName: input.fileName,
-      fileSizeBytes: input.fileSizeBytes || 1024 * 45,
+      fileSizeBytes: input.fileSizeBytes || (input.fileDataUrl ? Math.round(input.fileDataUrl.length * 0.75) : 1024 * 45),
       rawText,
       blocks,
       images,
@@ -267,8 +250,10 @@ export class ContentUnderstandingAgent {
       pageCount,
       detectedLanguage,
       hasScannedPages: inputType === 'pdf' && rawText.includes('scanned'),
+      imageAnalysis,
+      fileDataUrl: input.fileDataUrl,
       metadata: {
-        author: 'Digital Content Author',
+        author: 'Content Author',
         creationDate: new Date().toISOString(),
         readingComplexityFleschKincaid: metrics.gradeLevel,
         wordCount: metrics.wordCount,
@@ -278,34 +263,34 @@ export class ContentUnderstandingAgent {
   }
 
   private detectLanguage(text: string): string {
-    if (/[\u0C00-\u0C7F]/.test(text)) return 'te'; // Telugu
-    if (/[\u0900-\u097F]/.test(text)) return 'hi'; // Hindi
-    if (/[\u0B80-\u0BFF]/.test(text)) return 'ta'; // Tamil
+    if (/[\u0C00-\u0C7F]/.test(text)) return 'te';
+    if (/[\u0900-\u097F]/.test(text)) return 'hi';
+    if (/[\u0B80-\u0BFF]/.test(text)) return 'ta';
     return 'en';
   }
 
   private getDefaultContentForType(type: DocumentInputType, title: string): string {
+    if (type === 'image') {
+      return `# ${title}
+## What This Content Is About
+Visual image content provided for accessibility remediation.
+
+## Visual Elements
+* Visual graphic presentation elements.
+
+## What You Need to Know
+* All visual information is structured with accessible high-contrast markup and screen-reader alt text.
+
+## Action Steps
+There are no explicit action steps in this content.`;
+    }
     if (type === 'audio' || type === 'video') {
-      return `Welcome to the INCLUSA keynote presentation. Today we explore agentic multimodal AI solutions designed to bridge digital divides. Over two billion people experience digital accessibility barriers daily. Our automated architecture transforms complex visual documents, audio recordings, and dense reports into accessible formats instantaneously.`;
+      return `Audio/Video recording for ${title}. Content contains spoken dialogue requiring automated transcription and captioning.`;
     }
     if (type === 'url') {
-      return `# Web Accessibility Audit Target: ${title}
-The target web resource features interactive user dashboards, dynamic charts, and customer reporting summaries. Multiple images and navigation elements require semantic accessibility enhancement.`;
+      return `# Web Resource: ${title}\nWeb page structure requiring accessibility inspection and semantic remediation.`;
     }
-    return `# ${title} — Operational Guidelines & Procedures
-## What This Document Is About
-This document provides key procedures, guidelines, criteria, and actionable instructions for **${title}**.
-
-## Structured Process Guidelines
-| Guideline Section | Requirement Summary | Target Timeline | Status |
-| Assessment & Prerequisites | Review qualification rules and documents | Prior to submission | Required |
-| Procedure Execution | Submit formal documentation through the portal | Within 14 business days | Active |
-| Verification Review | Undergo official scrutiny and confirmation | Within 7 business days | Pending |
-
-## Core Takeaways & Actions
-* Complete all prerequisite checks before beginning the procedure.
-* Ensure all supporting verification records are gathered and submitted.
-* Monitor status updates through the official notification portal.`;
+    return `# ${title}\nContent provided for accessibility inspection and transformation.`;
   }
 }
 

@@ -8,6 +8,8 @@ import { DEFAULT_ACCESSIBILITY_PROFILE } from '@/lib/storage/document-store';
 import { analyzeRequestSchema } from '@/lib/validation/schemas';
 import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/utils/api-response';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(req);
@@ -21,13 +23,14 @@ export async function POST(req: NextRequest) {
       return apiValidationError(parsed.error);
     }
 
-    const { inputType, title, fileName, rawText, url, fileSizeBytes, profile } = parsed.data;
+    const { inputType, title, fileName, rawText, fileDataUrl, url, fileSizeBytes, profile } = parsed.data;
 
     const structuredContent = await contentUnderstandingAgent.analyze({
       inputType,
       title: title || fileName || 'Document',
       fileName,
       rawText,
+      fileDataUrl,
       url,
       fileSizeBytes,
     });

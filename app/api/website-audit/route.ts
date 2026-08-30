@@ -5,6 +5,8 @@ import { AccessibilityIssue } from '@/types';
 import { websiteAuditRequestSchema } from '@/lib/validation/schemas';
 import { apiSuccess, apiError, apiUnauthorized, apiValidationError } from '@/lib/utils/api-response';
 
+export const dynamic = 'force-dynamic';
+
 export async function POST(req: NextRequest) {
   try {
     const authUser = await getAuthenticatedUser(req);

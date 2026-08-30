@@ -1,18 +1,19 @@
 import { z } from 'zod';
 
-// ─── Analyze API ───────────────────────────────────────────────
+// ─── Analyze API ─────────────────────────────────────────────────────────────
 
 export const analyzeRequestSchema = z.object({
   inputType: z.enum(['pdf', 'image', 'docx', 'txt', 'audio', 'video', 'url', 'text']),
   title: z.string().max(500).optional(),
   fileName: z.string().max(500).optional(),
   rawText: z.string().optional(),
+  fileDataUrl: z.string().optional(),
   url: z.string().url('Invalid URL format').optional(),
   fileSizeBytes: z.number().int().nonnegative().optional(),
   profile: z.any().optional(),
 });
 
-// ─── Transform API ─────────────────────────────────────────────
+// ─── Transform API ───────────────────────────────────────────────────────────
 
 export const transformRequestSchema = z.object({
   structuredContent: z.object({}).passthrough().refine((val) => val !== null && val !== undefined, {
@@ -22,7 +23,7 @@ export const transformRequestSchema = z.object({
   profile: z.any().optional(),
 });
 
-// ─── Chat API ──────────────────────────────────────────────────
+// ─── Chat API ────────────────────────────────────────────────────────────────
 
 export const chatRequestSchema = z.object({
   question: z.string().min(1, 'Question cannot be empty').max(5000, 'Question is too long (max 5000 chars)'),
@@ -35,7 +36,7 @@ export const chatRequestSchema = z.object({
   })).optional(),
 });
 
-// ─── Verify API ────────────────────────────────────────────────
+// ─── Verify API ──────────────────────────────────────────────────────────────
 
 export const verifyRequestSchema = z.object({
   documentId: z.string().min(1, 'documentId is required'),
@@ -47,7 +48,7 @@ export const verifyRequestSchema = z.object({
   profile: z.any().optional(),
 });
 
-// ─── TTS API ───────────────────────────────────────────────────
+// ─── TTS API ─────────────────────────────────────────────────────────────────
 
 export const ttsRequestSchema = z.object({
   text: z.string().min(1, 'Text is required for speech synthesis').max(10000, 'Text too long (max 10,000 chars)'),
@@ -55,7 +56,7 @@ export const ttsRequestSchema = z.object({
   speed: z.number().min(0.25).max(4.0).default(1.0),
 });
 
-// ─── Website Audit API ─────────────────────────────────────────
+// ─── Website Audit API ───────────────────────────────────────────────────────
 
 export const websiteAuditRequestSchema = z.object({
   url: z.string().min(1, 'URL is required').refine(
@@ -71,7 +72,7 @@ export const websiteAuditRequestSchema = z.object({
   ),
 });
 
-// ─── Reports API ───────────────────────────────────────────────
+// ─── Reports API ─────────────────────────────────────────────────────────────
 
 export const createReportRequestSchema = z.object({
   documentId: z.string().min(1, 'documentId is required'),
@@ -82,7 +83,7 @@ export const createReportRequestSchema = z.object({
   reportPayload: z.object({}).passthrough(),
 });
 
-// ─── Profile API ───────────────────────────────────────────────
+// ─── Profile API ─────────────────────────────────────────────────────────────
 
 export const createProfileRequestSchema = z.object({
   name: z.string().min(1, 'Profile name is required').max(100),
@@ -96,7 +97,7 @@ export const createProfileRequestSchema = z.object({
 
 export const updateProfileRequestSchema = createProfileRequestSchema.partial();
 
-// ─── History API ───────────────────────────────────────────────
+// ─── History API ─────────────────────────────────────────────────────────────
 
 export const historyQuerySchema = z.object({
   page: z.coerce.number().int().min(1).default(1),
@@ -104,7 +105,7 @@ export const historyQuerySchema = z.object({
   id: z.string().optional(),
 });
 
-// ─── Type exports ──────────────────────────────────────────────
+// ─── Type exports ────────────────────────────────────────────────────────────
 
 export type AnalyzeRequest = z.infer<typeof analyzeRequestSchema>;
 export type TransformRequest = z.infer<typeof transformRequestSchema>;

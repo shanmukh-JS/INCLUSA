@@ -1,6 +1,6 @@
 'use client';
 
-import React, { useState, useEffect, Suspense } from 'react';
+import React, { useState, useEffect, useCallback, Suspense } from 'react';
 import Link from 'next/link';
 import { useRouter, useSearchParams } from 'next/navigation';
 import { useAuth } from '@/context/AuthContext';
@@ -32,7 +32,7 @@ function LoginForm() {
       ? rawRedirect
       : '/dashboard';
 
-  const { user, session, isLoading, login, logout, resendConfirmationEmail } = useAuth();
+  const { user, session, isLoading, login, loginAsDemo, logout, resendConfirmationEmail } = useAuth();
 
   const [email, setEmail] = useState('');
   const [password, setPassword] = useState('');
@@ -42,12 +42,12 @@ function LoginForm() {
   const [isSubmitting, setIsSubmitting] = useState(false);
   const [isResending, setIsResending] = useState(false);
 
-  const handleContinue = () => {
+  const handleContinue = useCallback(() => {
     if (session?.token) {
       document.cookie = `inclusa_auth_token=${encodeURIComponent(session.token)}; path=/; max-age=604800; SameSite=Lax`;
     }
     window.location.href = redirectUrl;
-  };
+  }, [session?.token, redirectUrl]);
 
   // Automatic redirect if already authenticated
   useEffect(() => {
@@ -57,7 +57,7 @@ function LoginForm() {
       }, 700);
       return () => clearTimeout(timer);
     }
-  }, [user, isLoading, redirectUrl]);
+  }, [user, isLoading, handleContinue]);
 
   // If already logged in, show clear authenticated state with instant redirect action
   if (!isLoading && user) {
@@ -255,6 +255,27 @@ function LoginForm() {
         >
           <LogIn className="h-4 w-4" />
           <span>{isSubmitting ? 'Signing in...' : 'Sign In'}</span>
+        </button>
+
+        <div className="relative flex py-2 items-center">
+          <div className="flex-grow border-t border-slate-200"></div>
+          <span className="flex-shrink mx-3 text-[10px] uppercase font-black text-slate-400">or</span>
+          <div className="flex-grow border-t border-slate-200"></div>
+        </div>
+
+        <button
+          type="button"
+          onClick={async () => {
+            setIsSubmitting(true);
+            await loginAsDemo();
+            setIsSubmitting(false);
+            router.replace(redirectUrl);
+          }}
+          disabled={isSubmitting}
+          className="w-full py-3 px-4 rounded-xl bg-purple-50 hover:bg-purple-100 text-purple-900 font-black text-xs border-2 border-purple-300 shadow-[3px_3px_0_0_#7c3aed] hover:translate-x-[-1px] hover:translate-y-[-1px] transition-all flex items-center justify-center gap-2 cursor-pointer"
+        >
+          <Layers className="h-4 w-4 text-purple-700" />
+          <span>⚡ Instant Demo Access / Continue as Guest</span>
         </button>
       </form>
 

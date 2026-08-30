@@ -4,20 +4,16 @@
   "framework": "nextjs",
   "functions": {
     "app/api/analyze/route.ts": {
-      "maxDuration": 60,
-      "memory": 1024
+      "maxDuration": 60
     },
     "app/api/transform/route.ts": {
-      "maxDuration": 60,
-      "memory": 1024
+      "maxDuration": 60
     },
     "app/api/chat/route.ts": {
-      "maxDuration": 30,
-      "memory": 512
+      "maxDuration": 30
     },
     "app/api/website-audit/route.ts": {
-      "maxDuration": 30,
-      "memory": 512
+      "maxDuration": 30
     }
   }
 }

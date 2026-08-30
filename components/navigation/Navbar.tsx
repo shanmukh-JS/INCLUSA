@@ -16,11 +16,11 @@ import {
   Compass,
   LogIn,
   LogOut,
-  User,
 } from 'lucide-react';
 import { InclusaMascot } from '@/components/ui/InclusaMascot';
 import { documentStore } from '@/lib/storage/document-store';
 import { AccessibilityProfile } from '@/types';
+import { useScrollProgress } from '@/lib/animation/useScrollAnimation';
 
 export const Navbar: React.FC = () => {
   const pathname = usePathname();
@@ -28,6 +28,7 @@ export const Navbar: React.FC = () => {
   const [activeProfile, setActiveProfile] = useState<AccessibilityProfile | null>(null);
   const [isMobileMenuOpen, setIsMobileMenuOpen] = useState(false);
   const mobileMenuRef = useRef<HTMLDivElement>(null);
+  const { isScrolled } = useScrollProgress();
 
   useEffect(() => {
     setActiveProfile(documentStore.getActiveProfile(user?.id));
@@ -62,8 +63,14 @@ export const Navbar: React.FC = () => {
   const initial = (user?.fullName?.[0] || user?.email?.[0] || 'U').toUpperCase();
 
   return (
-    <header className="sticky top-2 sm:top-4 z-40 w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto">
-      <div className="flex h-14 sm:h-16 items-center justify-between px-3.5 sm:px-6 md:px-8 rounded-2xl bg-white/95 backdrop-blur-md border-2 border-[var(--border-strong)] shadow-[0_4px_0_0_#192138] sm:shadow-[0_6px_0_0_#192138] transition-all">
+    <header className="sticky top-2 sm:top-4 z-40 w-full px-3 sm:px-6 lg:px-8 max-w-[1700px] mx-auto transition-all duration-300">
+      <div
+        className={`flex h-14 sm:h-16 items-center justify-between px-3.5 sm:px-6 md:px-8 rounded-2xl bg-white/95 backdrop-blur-md border-2 border-[var(--border-strong)] transition-all duration-300 ${
+          isScrolled
+            ? 'shadow-[0_6px_0_0_#192138] bg-white/98'
+            : 'shadow-[0_4px_0_0_#192138] sm:shadow-[0_6px_0_0_#192138]'
+        }`}
+      >
         {/* Brand / Logo with Incli Mascot */}
         <div className="flex items-center gap-2 sm:gap-3 shrink-0">
           <Link
